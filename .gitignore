@@ -1,0 +1,9 @@
+node_modules/
+data/
+*.mjs
+engine.cjs
+app-template.html
+EFFECT-DSL.md
+test-*.mjs
+build.mjs
+gen-effects.mjs
