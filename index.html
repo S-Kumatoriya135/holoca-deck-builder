@@ -943,6 +943,9 @@ header{
       "limited": true,
       "do": [
         {
+          "op": "shuffleDeck"
+        },
+        {
           "op": "draw",
           "n": 2
         }
@@ -958,6 +961,18 @@ header{
           "op": "buffArt",
           "amount": 40,
           "target": "collab"
+        },
+        {
+          "op": "dice",
+          "sides": 6,
+          "then": {
+            "6": [
+              {
+                "op": "draw",
+                "n": 1
+              }
+            ]
+          }
         }
       ]
     }
@@ -982,9 +997,18 @@ header{
       "limited": true,
       "do": [
         {
-          "op": "buffArt",
-          "amount": 100,
-          "target": "center"
+          "op": "dice",
+          "sides": 6,
+          "then": {
+            "even": [
+              {
+                "op": "buffArt",
+                "amount": 100,
+                "target": "center"
+              }
+            ],
+            "odd": []
+          }
         }
       ]
     }
@@ -1129,7 +1153,13 @@ header{
     ]
   },
   "hBP07-108": {
-    "static": []
+    "static": [
+      {
+        "mod": "artCost",
+        "amount": 1,
+        "colorless": true
+      }
+    ]
   },
   "hBP07-109": {
     "static": [
@@ -1159,6 +1189,9 @@ header{
       "limited": true,
       "do": [
         {
+          "op": "shuffleDeck"
+        },
+        {
           "op": "draw",
           "n": 2
         }
@@ -1169,7 +1202,21 @@ header{
     "ability": {
       "trigger": "manual",
       "once": "turn",
-      "do": []
+      "do": [
+        {
+          "op": "reveal",
+          "from": "deck",
+          "n": 50,
+          "keep": 1,
+          "filter": {
+            "cardType": "holomen"
+          },
+          "order": "any"
+        },
+        {
+          "op": "shuffleDeck"
+        }
+      ]
     }
   },
   "hBP08-092": {
@@ -1190,6 +1237,11 @@ header{
         },
         {
           "op": "shuffleDeck"
+        },
+        {
+          "op": "specialDamage",
+          "amount": 20,
+          "target": "chosenOpponent"
         }
       ]
     }
@@ -1212,7 +1264,13 @@ header{
       "trigger": "manual",
       "once": "turn",
       "limited": true,
-      "do": []
+      "do": [
+        {
+          "op": "heal",
+          "amount": 100,
+          "target": "center"
+        }
+      ]
     }
   },
   "hBP08-095": {
@@ -1225,6 +1283,11 @@ header{
           "op": "specialDamage",
           "amount": 50,
           "target": "opponentCenter"
+        },
+        {
+          "op": "specialDamage",
+          "amount": 50,
+          "target": "collabOpponent"
         }
       ]
     }
@@ -1244,6 +1307,11 @@ header{
         },
         {
           "op": "shuffleDeck"
+        },
+        {
+          "op": "buffArt",
+          "amount": 40,
+          "target": "allSelf"
         }
       ]
     }
@@ -1256,6 +1324,11 @@ header{
         {
           "op": "heal",
           "amount": 20,
+          "target": "chosenSelf"
+        },
+        {
+          "op": "attachCheer",
+          "n": 1,
           "target": "chosenSelf"
         }
       ]
@@ -1326,6 +1399,11 @@ header{
         },
         {
           "op": "shuffleDeck"
+        },
+        {
+          "op": "buffArt",
+          "amount": 30,
+          "target": "allSelf"
         }
       ]
     }
@@ -1335,6 +1413,17 @@ header{
       {
         "mod": "artPower",
         "amount": 10
+      }
+    ],
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "draw",
+            "n": 2
+          }
+        ]
       }
     ]
   },
@@ -1347,18 +1436,50 @@ header{
     ]
   },
   "hBP08-104": {
-    "static": []
+    "static": [
+      {
+        "mod": "artPower",
+        "amount": 10
+      }
+    ],
+    "keywords": [
+      {
+        "trigger": "onBloom",
+        "do": [
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
+    ]
   },
   "hBP08-105": {
     "static": [
       {
         "mod": "hp",
         "amount": 20
+      },
+      {
+        "mod": "artPower",
+        "amount": 20
       }
     ]
   },
   "hBP08-106": {
-    "static": []
+    "static": [],
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "attachCheer",
+            "n": 1,
+            "target": "chosenSelf"
+          }
+        ]
+      }
+    ]
   },
   "hBP08-107": {
     "static": [
@@ -1374,6 +1495,17 @@ header{
         "mod": "hp",
         "amount": 10
       }
+    ],
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
     ]
   },
   "hBP08-109": {
@@ -1381,6 +1513,18 @@ header{
       {
         "mod": "artPower",
         "amount": 10
+      }
+    ],
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "attachCheer",
+            "n": 1,
+            "target": "chosenSelf"
+          }
+        ]
       }
     ]
   },
@@ -1411,6 +1555,18 @@ header{
         "mod": "hp",
         "amount": 10
       }
+    ],
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "attachCheer",
+            "n": 1,
+            "target": "chosenSelf"
+          }
+        ]
+      }
     ]
   },
   "hSD15-010": {
@@ -1420,7 +1576,7 @@ header{
       "do": [
         {
           "op": "buffArt",
-          "amount": 10,
+          "amount": 20,
           "target": "chosenSelf"
         }
       ]
@@ -4915,12 +5071,22 @@ header{
   };
   Game.prototype.downCenter = function (op, me) {
     const downed = op.center;
-    // onDowned trigger before archiving
+    // onDowned trigger before archiving (card + attachments)
     if (this.effectsOn) {
       const fx = fxOf(this.DB, downed.card.n);
       if (fx && fx.keywords) {
         fx.keywords.filter((k) => k.trigger === 'onDowned').forEach((k, i) => {
           tryRunAbility(this, op, me, k, abilityKey(downed.card.n, 'kwDown' + i), downed, this.rndFor(op));
+        });
+      }
+      if (downed.attachments) {
+        downed.attachments.forEach((att) => {
+          const afx = fxOf(this.DB, att.n);
+          if (afx && afx.keywords) {
+            afx.keywords.filter((k) => k.trigger === 'onDowned').forEach((k, i) => {
+              tryRunAbility(this, op, me, k, abilityKey(att.n, 'attDown' + i), downed, this.rndFor(op));
+            });
+          }
         });
       }
     }
@@ -5157,6 +5323,17 @@ header{
         if (fx && fx.keywords) {
           fx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
             tryRunAbility(this, p, op, k, abilityKey(bl.n, 'kwB' + i), holo, this.rndFor(p));
+          });
+        }
+        // onBloom triggers from attachments
+        if (holo.attachments) {
+          holo.attachments.forEach((att) => {
+            const afx = fxOf(this.DB, att.n);
+            if (afx && afx.keywords) {
+              afx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
+                tryRunAbility(this, p, op, k, abilityKey(att.n, 'attB' + i), holo, this.rndFor(p));
+              });
+            }
           });
         }
       }
