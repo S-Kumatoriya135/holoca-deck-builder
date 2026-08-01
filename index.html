@@ -5528,7 +5528,14 @@ const LEVELCOLOR = {'Debut':'#5ad1cf','1st':'#7c9cff','2nd':'#c56cff','Spot':'#8
 const CATS = [['all','すべて'],['oshi','推しホロメン'],['holomen','ホロメン'],['support','サポート'],['cheer','エール']];
 const SETS = [...new Set(CARDS.map(c=>c.set))].sort();
 const LIMIT = {main:50,cheer:20,perCard:4};
-const UNLIMITED = new Set(['hBP08-062']);
+const UNLIMITED = new Set([
+  'hBP01-024','hBP01-028','hBP01-044','hBP01-056','hBP01-062','hBP01-092',
+  'hBP02-018','hBP02-024','hBP02-061',
+  'hBP03-025','hBP03-031','hBP03-037','hBP03-040','hBP03-067','hBP03-080',
+  'hBP04-028','hBP04-050','hBP04-054','hBP04-083',
+  'hBP08-062',
+  'hSD10-002','hSD11-002','hSD11-007'
+]);
 
 /* ===================== state ===================== */
 const state = {
