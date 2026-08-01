@@ -5528,6 +5528,7 @@ const LEVELCOLOR = {'Debut':'#5ad1cf','1st':'#7c9cff','2nd':'#c56cff','Spot':'#8
 const CATS = [['all','すべて'],['oshi','推しホロメン'],['holomen','ホロメン'],['support','サポート'],['cheer','エール']];
 const SETS = [...new Set(CARDS.map(c=>c.set))].sort();
 const LIMIT = {main:50,cheer:20,perCard:4};
+const UNLIMITED = new Set(['hBP08-062']);
 
 /* ===================== state ===================== */
 const state = {
@@ -5612,7 +5613,7 @@ function addCard(c){
   }
   // main deck
   const cur=state.main[c.n]||0;
-  if(cur>=LIMIT.perCard){ toast('同名カードは4枚までです'); return; }
+  if(!UNLIMITED.has(c.n) && cur>=LIMIT.perCard){ toast('同名カードは4枚までです'); return; }
   if(sum(state.main)>=LIMIT.main){ toast('メインデッキは50枚までです'); return; }
   state.main[c.n]=cur+1; afterChange();
 }
@@ -5650,7 +5651,7 @@ function validate(){
   else if(ch>20) errs.push(`エールデッキが${ch}枚です（20枚を${ch-20}枚超過）`);
   else oks.push('エールデッキ 20枚 ✔');
   // per-card limit (main)
-  const over=Object.entries(state.main).filter(([,q])=>q>4);
+  const over=Object.entries(state.main).filter(([n,q])=>q>4 && !UNLIMITED.has(n));
   over.forEach(([n,q])=>errs.push(`${BYNUM.get(n).nm}（${n}）が${q}枚（同名は4枚まで）`));
   // cheer must be エール (guaranteed by add), verify anyway
   Object.keys(state.cheer).forEach(n=>{if(BYNUM.get(n).t!=='cheer')errs.push(n+'はエールではありません');});
