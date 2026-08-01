@@ -410,7 +410,13 @@ header{
       "cost": {
         "holopower": 2
       },
-      "do": []
+      "do": [
+        {
+          "op": "buffArt",
+          "amount": 100,
+          "target": "chosenSelf"
+        }
+      ]
     }
   },
   "hBP07-003": {
@@ -488,7 +494,17 @@ header{
       "cost": {
         "holopower": 4
       },
-      "do": []
+      "do": [
+        {
+          "op": "buffArt",
+          "amount": 50,
+          "target": "allSelf"
+        },
+        {
+          "op": "draw",
+          "n": 2
+        }
+      ]
     }
   },
   "hBP07-006": {
@@ -536,7 +552,21 @@ header{
       "cost": {
         "holopower": 1
       },
-      "do": []
+      "do": [
+        {
+          "op": "reveal",
+          "from": "deck",
+          "n": 50,
+          "keep": 2,
+          "filter": {
+            "cardType": "holomen"
+          },
+          "order": "any"
+        },
+        {
+          "op": "shuffleDeck"
+        }
+      ]
     }
   },
   "hBP08-001": {
@@ -595,6 +625,11 @@ header{
         {
           "op": "draw",
           "n": 1
+        },
+        {
+          "op": "attachCheer",
+          "n": 1,
+          "target": "chosenSelf"
         }
       ]
     }
@@ -606,7 +641,13 @@ header{
       "cost": {
         "holopower": 1
       },
-      "do": []
+      "do": [
+        {
+          "op": "specialDamage",
+          "amount": 20,
+          "target": "opponentCenter"
+        }
+      ]
     },
     "sp": {
       "trigger": "manual",
@@ -635,6 +676,11 @@ header{
           "op": "specialDamage",
           "amount": 50,
           "target": "opponentCenter"
+        },
+        {
+          "op": "specialDamage",
+          "amount": 50,
+          "target": "collabOpponent"
         }
       ]
     }
@@ -644,9 +690,15 @@ header{
       "trigger": "manual",
       "once": "turn",
       "cost": {
-        "holopower": 1
+        "holopower": 2
       },
-      "do": []
+      "do": [
+        {
+          "op": "buffArt",
+          "amount": 20,
+          "target": "chosenSelf"
+        }
+      ]
     }
   },
   "hBP08-007": {
@@ -656,7 +708,13 @@ header{
       "cost": {
         "holopower": 2
       },
-      "do": []
+      "do": [
+        {
+          "op": "buffArt",
+          "amount": 30,
+          "target": "center"
+        }
+      ]
     },
     "sp": {
       "trigger": "manual",
@@ -4960,18 +5018,48 @@ header{
     const rnd = this.rndFor(p);
     const payHolopower = (n) => {
       if (!n) return true;
-      if (p.deck.length <= n + 5) return false; // safety buffer, avoid decking out
+      if (p.deck.length <= n + 5) return false;
       for (let i = 0; i < n; i++) p.holoPower.push(p.deck.shift());
       return true;
     };
-    if (fx.oshi && canUse(p, abilityKey(p.oshiCard.n, 'oshi'), 'turn')) {
+    // AI: evaluate whether to use oshi skill based on cost/benefit
+    const shouldUseOshi = (skill) => {
+      const cost = (skill.cost && skill.cost.holopower) || 0;
+      if (cost >= 5 && p.deck.length < 20) return false;
+      if (cost >= 3 && p.deck.length < 12) return false;
+      const ops = skill.do || [];
+      const hasBuff = ops.some((a) => a.op === 'buffArt');
+      if (hasBuff && !p.center) return false;
+      return true;
+    };
+    // AI: SP is game-once — save for impactful moments
+    const shouldUseSP = (skill) => {
+      const cost = (skill.cost && skill.cost.holopower) || 0;
+      if (p.deck.length <= cost + 8) return false;
+      const ops = skill.do || [];
+      const hasDamage = ops.some((a) => a.op === 'specialDamage');
+      if (hasDamage && op.center) {
+        const opHp = (op.center.card.hp || 0) - op.center.dmg;
+        const dmg = ops.filter((a) => a.op === 'specialDamage').reduce((s, a) => s + (a.amount || 0), 0);
+        if (opHp > dmg * 2) return false; // save if enemy is too healthy
+      }
+      const hasBuff = ops.some((a) => a.op === 'buffArt');
+      if (hasBuff && !p.center) return false;
+      if (hasBuff && p.center) {
+        const art = bestArt(p.center, this.DB);
+        if (!art) return false; // no art to buff
+      }
+      if (this.turn < 4 && cost >= 3) return false; // save expensive SP for later
+      return true;
+    };
+    if (fx.oshi && canUse(p, abilityKey(p.oshiCard.n, 'oshi'), 'turn') && shouldUseOshi(fx.oshi)) {
       const cost = (fx.oshi.cost && fx.oshi.cost.holopower) || 0;
       if (payHolopower(cost)) {
         const used = tryRunAbility(this, p, op, fx.oshi, abilityKey(p.oshiCard.n, 'oshi'), p.center, rnd);
         if (used) this.push('', `${p.name}: 推しスキル「${fx.oshi.name || ''}」`);
       }
     }
-    if (fx.sp && canUse(p, abilityKey(p.oshiCard.n, 'sp'), 'game')) {
+    if (fx.sp && canUse(p, abilityKey(p.oshiCard.n, 'sp'), 'game') && shouldUseSP(fx.sp)) {
       const cost = (fx.sp.cost && fx.sp.cost.holopower) || 0;
       if (payHolopower(cost)) {
         const used = tryRunAbility(this, p, op, fx.sp, abilityKey(p.oshiCard.n, 'sp'), p.center, rnd);
