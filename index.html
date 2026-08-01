@@ -3147,6 +3147,17 @@ header{
     }
   },
   "hBP08-013": {
+    "keywords": [
+      {
+        "trigger": "onGift",
+        "do": [
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
+    ],
     "arts": {
       "0": {
         "trigger": "onArtUse",
@@ -3561,6 +3572,28 @@ header{
         ]
       }
     }
+  },
+  "hBP08-046": {
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "reveal",
+            "from": "deck",
+            "n": 50,
+            "keep": 1,
+            "filter": {
+              "cardType": "holomen"
+            },
+            "order": "any"
+          },
+          {
+            "op": "shuffleDeck"
+          }
+        ]
+      }
+    ]
   },
   "hBP08-047": {
     "keywords": [
@@ -4157,6 +4190,19 @@ header{
       }
     }
   },
+  "hSD14-009": {
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
+    ]
+  },
   "hSD15-004": {
     "keywords": [
       {
@@ -4171,7 +4217,33 @@ header{
       }
     ]
   },
+  "hSD15-005": {
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "attachCheer",
+            "n": 1,
+            "target": "chosenSelf"
+          }
+        ]
+      }
+    ]
+  },
   "hSD15-008": {
+    "keywords": [
+      {
+        "trigger": "onGift",
+        "do": [
+          {
+            "op": "heal",
+            "amount": 20,
+            "target": "self"
+          }
+        ]
+      }
+    ],
     "arts": {
       "0": {
         "trigger": "onArtUse",
@@ -4213,6 +4285,17 @@ header{
     }
   },
   "hSD16-007": {
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
+    ],
     "arts": {
       "0": {
         "trigger": "onArtUse",
@@ -4283,6 +4366,17 @@ header{
     ]
   },
   "hSD17-008": {
+    "keywords": [
+      {
+        "trigger": "onDowned",
+        "do": [
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
+    ],
     "arts": {
       "0": {
         "trigger": "onArtUse",
@@ -4555,6 +4649,11 @@ header{
       case 'chosenOpponent': { const t = pickLowestHpTarget(game.allHolos(op)); return t ? [t] : []; }
       case 'chosenSelf': { const t = pickTopAttacker(game.allHolos(me), game.DB); return t ? [t] : []; }
       case 'mostDamagedSelf': { const t = pickMostDamaged(game.allHolos(me)); return t ? [t] : []; }
+      case 'backStage': return me.back.slice();
+      case 'backOpponent': return op.back.slice();
+      case 'collabOpponent': return op.collab ? [op.collab] : [];
+      case 'chosenBackOpponent': { const t = pickLowestHpTarget(op.back); return t ? [t] : []; }
+      case 'allField': return game.allHolos(me).concat(game.allHolos(op));
       default: return [];
     }
   }
@@ -4648,7 +4747,57 @@ header{
       case 'shuffleDeck': shuffle(me.deck, rnd); break;
       case 'lifeChange': me.life = Math.max(0, me.life + a.delta); break;
       case 'if': { if (checkCondition(a.cond, ctx)) runActions(a.then, ctx); else if (a.else) runActions(a.else, ctx); break; }
-      default: break; // unimplemented op: safe no-op fallback
+      case 'returnToHand': {
+        const targets = resolveTargets(a.target, ctx);
+        targets.forEach((h) => {
+          const owner = game.allHolos(me).includes(h) ? me : op;
+          if (owner.center === h) { owner.center = null; }
+          else if (owner.collab === h) { owner.collab = null; }
+          else { const bi = owner.back.indexOf(h); if (bi >= 0) owner.back.splice(bi, 1); }
+          owner.hand.push(h.card);
+          game.push('', `${owner.name}: ${h.card.nm} を手札に戻した`);
+          if (!owner.center && owner.back.length) {
+            const pr = owner.back.sort((x, y) => topArtPower(y.card, game.DB) - topArtPower(x.card, game.DB))[0];
+            owner.back.splice(owner.back.indexOf(pr), 1); owner.center = pr;
+          }
+        });
+        break;
+      }
+      case 'sendToArchive': {
+        const targets = resolveTargets(a.target, ctx);
+        targets.forEach((h) => {
+          const owner = game.allHolos(me).includes(h) ? me : op;
+          for (let i = 0; i < (a.n || 1) && h.cheer.length; i++) {
+            owner.archive.push({ t: 'cheer', c: [h.cheer.pop()] });
+          }
+          game.push('', `${owner.name}: ${h.card.nm} からエール${a.n || 1}枚をアーカイブ`);
+        });
+        break;
+      }
+      case 'moveCheer': {
+        const from = resolveTargets(a.from || a.target, ctx);
+        const to = resolveTargets(a.to || 'self', ctx);
+        if (from.length && to.length && from[0].cheer.length) {
+          const col = from[0].cheer.pop();
+          to[0].cheer.push(col);
+          game.push('', `${me.name}: エールを${from[0].card.nm}→${to[0].card.nm}に付け替え`);
+        }
+        break;
+      }
+      case 'powerDown': {
+        const targets = resolveTargets(a.target, ctx);
+        targets.forEach((h) => { h.buffArt = (h.buffArt || 0) - (a.amount || 0); });
+        break;
+      }
+      case 'search': {
+        const n = Math.min(a.n || 1, me.deck.length);
+        const match = me.deck.filter((c) => matchesFilter(c, a.filter));
+        const take = match.slice(0, n);
+        take.forEach((c) => { me.hand.push(c); me.deck.splice(me.deck.indexOf(c), 1); });
+        if (take.length) { shuffle(me.deck, rnd); game.push('', `${me.name}: デッキから${take.length}枚サーチ`); }
+        break;
+      }
+      default: break;
     }
   }
   function archiveHolo(game, p, holo) {
@@ -4708,10 +4857,40 @@ header{
   };
   Game.prototype.downCenter = function (op, me) {
     const downed = op.center;
+    // onDowned trigger before archiving
+    if (this.effectsOn) {
+      const fx = fxOf(this.DB, downed.card.n);
+      if (fx && fx.keywords) {
+        fx.keywords.filter((k) => k.trigger === 'onDowned').forEach((k, i) => {
+          tryRunAbility(this, op, me, k, abilityKey(downed.card.n, 'kwDown' + i), downed, this.rndFor(op));
+        });
+      }
+    }
     op.archive.push(downed.card);
+    downed.cheer.forEach((c) => op.archive.push({ t: 'cheer', c: [c] }));
     op.center = null;
-    if (op.life > 0) { op.life -= 1; this.push('ko', `　⤷ ${op.name} のホロメンがダウン！ ライフ -1（残り${op.life}）`); }
-    else { op.lost = true; op.lostReason = 'ライフ0でダウン'; this.push('ko', `　⤷ ${op.name} のホロメンがダウン！ ライフ0 → 敗北`); return; }
+    if (op.lifeCards && op.lifeCards.length > 0) {
+      const lifeCheer = op.lifeCards.pop();
+      op.life = op.lifeCards.length;
+      const col = (lifeCheer.c && lifeCheer.c[0]) || '無';
+      this.push('ko', `　⤷ ${op.name} のホロメンがダウン！ ライフ -1（残り${op.life}）`);
+      // Attach life cheer to a holomen on the field
+      const candidates = this.allHolos(op);
+      if (candidates.length) {
+        let target = candidates[0];
+        for (const h of candidates) {
+          const arts = this.DB.get(h.card.n).arts;
+          if (arts.length && !canPay(effCost(arts[arts.length - 1], h), h.cheer)) { target = h; break; }
+        }
+        target.cheer.push(col);
+        this.push('', `　${op.name}: ライフから${target.card.nm} に ${col}エール`);
+      }
+    } else {
+      op.life = 0;
+      op.lost = true; op.lostReason = 'ライフ0でダウン';
+      this.push('ko', `　⤷ ${op.name} のホロメンがダウン！ ライフ0 → 敗北`);
+      return;
+    }
     if (op.back.length) {
       const promote = op.back.sort((a, b) => topArtPower(b.card, this.DB) - topArtPower(a.card, this.DB))[0];
       op.back.splice(op.back.indexOf(promote), 1); op.center = promote;
@@ -4751,15 +4930,26 @@ header{
     if (!p.cheerDeck.length) return;
     const cheer = p.cheerDeck.shift();
     const col = (cheer.c && cheer.c[0]) || '無';
-    const attackers = [p.center, p.collab].filter(Boolean);
-    let target = p.center;
-    for (const h of attackers) {
+    const candidates = [p.center, p.collab, ...p.back].filter(Boolean);
+    if (!candidates.length) return;
+    let target = null, bestScore = -1;
+    for (const h of candidates) {
       const arts = this.DB.get(h.card.n).arts;
       if (!arts.length) continue;
       const top = arts.reduce((best, a) => (a.power > (best ? best.power : -1) ? a : best), null);
-      if (top && !canPay(effCost(top, h), h.cheer)) { target = h; break; }
+      if (!top) continue;
+      let score = 0;
+      if (!canPay(effCost(top, h), h.cheer)) {
+        score += 100; // needs cheer to attack
+        const needs = effCost(top, h).colors;
+        if (needs[col]) score += 50; // color match bonus
+      }
+      if (h === p.center) score += 10; // prefer center
+      if (score > bestScore) { bestScore = score; target = h; }
     }
-    if (target) { target.cheer.push(col); this.push('', `${p.name}: ${target.card.nm} に ${col}エール`); }
+    if (!target) target = p.center || candidates[0];
+    target.cheer.push(col);
+    this.push('', `${p.name}: ${target.card.nm} に ${col}エール`);
   };
 
   // ---- Phase 2: oshi skill / SP oshi skill (manual, AI-triggered) ----
@@ -4794,6 +4984,18 @@ header{
   Game.prototype.playSupportCards = function (p, op, turnNo) {
     if (!this.effectsOn) return;
     const rnd = this.rndFor(p);
+    // Sort supports: draw/reveal first, then buffs, then others
+    const supPriority = (c) => {
+      const fx = fxOf(this.DB, c.n);
+      if (!fx || !fx.ability || !fx.ability.do) return 50;
+      const ops = fx.ability.do.map((a) => a.op);
+      if (ops.includes('draw') || ops.includes('reveal') || ops.includes('search')) return 10;
+      if (ops.includes('buffArt') || ops.includes('attachCheer')) return 20;
+      return 40;
+    };
+    const sups = p.hand.filter((c) => c.t === 'support').sort((a, b) => supPriority(a) - supPriority(b));
+    const nonSups = p.hand.filter((c) => c.t !== 'support');
+    p.hand = nonSups.concat(sups);
     let guard = 0;
     while (guard++ < 8) {
       const idx = p.hand.findIndex((c) => c.t === 'support');
@@ -4849,10 +5051,20 @@ header{
       if (!next) return;
       const idx = p.hand.findIndex((c) => c.t === 'holomen' && c.nm === holo.card.nm && c.bl === next);
       if (idx < 0) return;
+      const prevCard = holo.card;
       const bl = p.hand.splice(idx, 1)[0];
       holo.card = bl; holo.bloomedTurn = turnNo;
       this.push('', `${p.name}: ${bl.nm} に ブルーム(${next})`);
       if (this.effectsOn) {
+        // Gift trigger: check if the previous (material) card had Gift
+        const prevFx = fxOf(this.DB, prevCard.n);
+        if (prevFx && prevFx.keywords) {
+          prevFx.keywords.filter((k) => k.trigger === 'onGift').forEach((k, i) => {
+            tryRunAbility(this, p, op, k, abilityKey(prevCard.n, 'gift' + i), holo, this.rndFor(p));
+            this.push('', `${p.name}: ${prevCard.nm} のギフト効果`);
+          });
+        }
+        // onBloom trigger on the new card
         const fx = fxOf(this.DB, bl.n);
         if (fx && fx.keywords) {
           fx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
@@ -4875,9 +5087,17 @@ header{
     if (this.effectsOn) this.playSupportCards(p, op, turnNo);
 
     if (!p.collab && !p.usedCollab && p.back.length) {
+      const collabScore = (h) => {
+        let s = topArtPower(h.card, this.DB);
+        if (this.effectsOn) {
+          const fx = fxOf(this.DB, h.card.n);
+          if (fx && fx.keywords && fx.keywords.some((k) => k.trigger === 'onCollab')) s += 30;
+        }
+        return s;
+      };
       const cand = p.back.filter((h) => !h.rested && h.playedTurn !== turnNo)
-        .sort((a, b) => topArtPower(b.card, this.DB) - topArtPower(a.card, this.DB))[0];
-      if (cand && topArtPower(cand.card, this.DB) > 0) {
+        .sort((a, b) => collabScore(b) - collabScore(a))[0];
+      if (cand && (topArtPower(cand.card, this.DB) > 0 || collabScore(cand) > 0)) {
         p.back.splice(p.back.indexOf(cand), 1); p.collab = cand; p.usedCollab = true;
         this.push('', `${p.name}: ${cand.card.nm} をコラボ`);
         if (this.effectsOn) {
@@ -4894,16 +5114,28 @@ header{
     if (this.effectsOn) this.tryOshiSkills(p, op);
 
     const centerArt = p.center ? bestArt(p.center, this.DB) : null;
-    if (p.center && !centerArt) {
+    const shouldBaton = (center) => {
+      if (!center) return false;
+      const need = this.DB.get(center.card.n).baton;
+      if (center.cheer.length < need || !p.back.length) return false;
+      if (!centerArt) return true; // can't attack → baton
+      // baton if center is near death and a healthier replacement exists
+      const hp = (center.card.hp || 0);
+      const remaining = hp - center.dmg;
+      if (remaining <= hp * 0.3 && remaining > 0) {
+        const better = p.back.find((h) => !h.rested && h.dmg < (h.card.hp || 0) * 0.5 && topArtPower(h.card, this.DB) >= topArtPower(center.card, this.DB) * 0.7);
+        if (better) return true;
+      }
+      return false;
+    };
+    if (p.center && shouldBaton(p.center)) {
       const need = this.DB.get(p.center.card.n).baton;
-      if (p.center.cheer.length >= need && p.back.length) {
-        const better = p.back.filter((h) => !h.rested).sort((a, b) => topArtPower(b.card, this.DB) - topArtPower(a.card, this.DB))[0];
-        if (better && topArtPower(better.card, this.DB) > 0) {
-          for (let i = 0; i < need; i++) p.archive.push({ cheer: p.center.cheer.pop() });
-          p.back.splice(p.back.indexOf(better), 1);
-          const old = p.center; p.center = better; p.back.push(old);
-          this.push('', `${p.name}: バトンタッチ → ${better.card.nm} がセンター`);
-        }
+      const better = p.back.filter((h) => !h.rested).sort((a, b) => topArtPower(b.card, this.DB) - topArtPower(a.card, this.DB))[0];
+      if (better && (topArtPower(better.card, this.DB) > 0 || !centerArt)) {
+        for (let i = 0; i < need; i++) p.archive.push({ t: 'cheer', c: [p.center.cheer.pop()] });
+        p.back.splice(p.back.indexOf(better), 1);
+        const old = p.center; p.center = better; p.back.push(old);
+        this.push('', `${p.name}: バトンタッチ → ${better.card.nm} がセンター`);
       }
     }
   };
@@ -4943,6 +5175,8 @@ header{
     if (me.lost || op.lost) return;
     this.turn++;
     const turnNo = this.turn;
+    // Reset step: return collab holomen to back stage
+    if (me.collab) { me.back.push(me.collab); me.collab = null; }
     this.allHolos(me).forEach((h) => { h.rested = false; h.buffArt = 0; h.costReduce = 0; });
     me.usedCollab = false; me.usedTurn.clear(); me.limitedUsedTurn = false;
     const isFirstEver = (turnNo === 1 && who === this.first);
