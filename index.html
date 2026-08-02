@@ -315,44 +315,71 @@ header{
 .bv-quit{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:12px}
 
 .bv-field{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.bv-half{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 8px}
-.bv-half.op{flex:0 0 auto}
-.bv-half.me{flex:0 0 auto}
-.bv-stage{display:flex;justify-content:center;gap:8px;position:relative;flex:1;min-height:0;align-items:center}
-.bv-divider{height:2px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:2px 0}
+.bv-divider{height:2px;background:linear-gradient(90deg,transparent,var(--accent) 30%,var(--accent) 70%,transparent);margin:0;opacity:.3}
 
-.bv-info-bar{display:flex;align-items:center;gap:6px;padding:2px 8px;font-size:11px;color:var(--muted)}
-.bv-info-bar .name{font-weight:700;color:var(--text);font-size:13px}
-.bv-info-bar .life-pips{display:flex;gap:2px}
-.bv-info-bar .pip{width:10px;height:10px;border-radius:50%;background:var(--err);border:1px solid rgba(255,255,255,.2)}
-.bv-info-bar .pip.lost{background:var(--bg3);opacity:.3}
-.bv-info-bar .counts{margin-left:auto;display:flex;gap:8px;font-size:10px}
+/* --- play mat half --- */
+.bv-half{position:relative;display:grid;gap:4px;padding:6px 4px;
+  grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;align-items:center}
+.bv-half.op{flex:0 0 auto;background:linear-gradient(180deg,rgba(154,124,255,.08),transparent)}
+.bv-half.me{flex:0 0 auto;background:linear-gradient(0deg,rgba(90,209,207,.08),transparent)}
 
-.bv-slot{width:56px;display:flex;flex-direction:column;align-items:center;position:relative;cursor:pointer;transition:transform .15s}
-.bv-slot:hover{transform:scale(1.05)}
+/* left zone: life + cheer deck */
+.bv-zone-left{grid-row:1/3;grid-column:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px}
+.bv-zone-left .zone-stack{position:relative;width:36px;height:50px;border-radius:4px;border:1px solid var(--line);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--muted)}
+.bv-zone-left .zone-stack.life{border-color:rgba(229,72,77,.4);background:linear-gradient(135deg,rgba(229,72,77,.12),var(--bg3))}
+.bv-zone-left .zone-stack.cheer-pile{border-color:rgba(90,209,207,.3);background:linear-gradient(135deg,rgba(90,209,207,.10),var(--bg3))}
+.bv-zone-left .zone-label{font-size:8px;color:var(--muted)}
+
+/* center: oshi + collab + center row, back row */
+.bv-zone-center{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bv-stage-row{display:flex;gap:6px;justify-content:center;align-items:flex-end}
+.bv-back-row{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.bv-pos-tag{font-size:7px;color:var(--muted);text-align:center;margin-top:-2px;letter-spacing:.3px}
+
+/* right zone: holo power + deck + archive */
+.bv-zone-right{grid-row:1/3;grid-column:3;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px}
+.bv-zone-right .zone-stack{position:relative;width:36px;height:50px;border-radius:4px;border:1px solid var(--line);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--muted)}
+.bv-zone-right .zone-stack.hp-zone{border-color:rgba(124,92,255,.4);background:linear-gradient(135deg,rgba(124,92,255,.12),var(--bg3))}
+.bv-zone-right .zone-stack.deck-zone{border-color:var(--line)}
+.bv-zone-right .zone-stack.archive-zone{border-color:var(--line);opacity:.6}
+.bv-zone-right .zone-label{font-size:8px;color:var(--muted)}
+
+/* player name bar */
+.bv-name-bar{grid-column:1/4;display:flex;align-items:center;gap:6px;padding:0 4px;font-size:11px;color:var(--muted)}
+.bv-half.op .bv-name-bar{grid-row:1;padding-bottom:2px}
+.bv-half.me .bv-name-bar{grid-row:1;padding-bottom:2px}
+.bv-name-bar .name{font-weight:700;color:var(--text);font-size:12px}
+.bv-name-bar .life-pips{display:flex;gap:2px}
+.bv-name-bar .pip{width:9px;height:9px;border-radius:50%;background:var(--err);border:1px solid rgba(255,255,255,.15)}
+.bv-name-bar .pip.lost{background:var(--bg3);opacity:.3}
+
+/* slots */
+.bv-slot{width:52px;display:flex;flex-direction:column;align-items:center;position:relative;cursor:pointer;transition:transform .15s}
+.bv-slot:hover{transform:scale(1.08)}
 .bv-slot.selectable{animation:pulse 1.2s infinite}
 .bv-slot.selected{outline:2px solid var(--accent);border-radius:6px}
-.bv-slot .card-thumb{width:54px;height:76px;border-radius:5px;object-fit:cover;border:2px solid var(--line);display:block}
+.bv-slot .card-thumb{width:50px;height:70px;border-radius:4px;object-fit:cover;border:2px solid var(--line);display:block}
 .bv-slot.selectable .card-thumb{border-color:var(--accent);box-shadow:0 0 8px rgba(90,209,207,.5)}
-.bv-slot .hp-bar{width:50px;height:4px;background:var(--bg3);border-radius:2px;margin-top:2px;overflow:hidden}
+.bv-slot .hp-bar{width:46px;height:3px;background:var(--bg3);border-radius:2px;margin-top:1px;overflow:hidden}
 .bv-slot .hp-fill{height:100%;background:var(--ok);transition:width .3s}
 .bv-slot .hp-fill.warn{background:var(--warn)}
 .bv-slot .hp-fill.crit{background:var(--err)}
-.bv-slot .slot-label{font-size:8px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56px}
-.bv-slot .cheer-dots{display:flex;gap:1px;justify-content:center;flex-wrap:wrap;max-width:56px}
-.bv-slot .cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.bv-slot-empty{width:54px;height:76px;border-radius:5px;border:2px dashed var(--line);opacity:.3}
-.bv-slot .dmg-text{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);color:var(--err);font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px}
-.bv-slot .buff-text{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.7);color:var(--accent);font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px}
-.bv-back{display:flex;gap:4px;justify-content:center}
-.bv-center-area{display:flex;gap:12px;justify-content:center;align-items:center}
-.bv-pos-label{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);background:var(--bg);padding:0 3px;white-space:nowrap}
+.bv-slot .slot-label{font-size:7px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px}
+.bv-slot .cheer-dots{display:flex;gap:1px;justify-content:center;flex-wrap:wrap;max-width:52px}
+.bv-slot .cdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.bv-slot-empty{width:50px;height:70px;border-radius:4px;border:2px dashed var(--line);opacity:.25;display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--muted)}
+.bv-slot .dmg-text{position:absolute;top:1px;right:1px;background:rgba(0,0,0,.75);color:var(--err);font-size:8px;font-weight:700;padding:1px 3px;border-radius:3px}
+.bv-slot .buff-text{position:absolute;top:1px;left:1px;background:rgba(0,0,0,.75);color:var(--accent);font-size:8px;font-weight:700;padding:1px 3px;border-radius:3px}
+.bv-slot.oshi-slot .card-thumb{border-color:rgba(124,92,255,.5);border-radius:6px}
+.bv-slot.rested .card-thumb{opacity:.55;filter:saturate(.5)}
 
+/* hand */
 .bv-hand{flex-shrink:0;overflow-x:auto;display:flex;gap:4px;padding:4px 8px;background:var(--bg2);border-top:1px solid var(--line);scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-.bv-hand .hand-card{width:48px;height:68px;border-radius:4px;object-fit:cover;border:2px solid var(--line);cursor:pointer;flex-shrink:0;transition:transform .15s}
+.bv-hand .hand-card{width:46px;height:64px;border-radius:4px;object-fit:cover;border:2px solid var(--line);cursor:pointer;flex-shrink:0;transition:transform .15s}
 .bv-hand .hand-card:hover{transform:translateY(-4px)}
 .bv-hand .hand-card.selectable{border-color:var(--accent);box-shadow:0 0 6px rgba(90,209,207,.4)}
 
+/* actions */
 .bv-actions{flex-shrink:0;background:var(--bg2);border-top:1px solid var(--line);padding:6px 8px;max-height:180px;overflow-y:auto}
 .bv-actions .prompt{font-size:12px;color:var(--accent);font-weight:700;margin-bottom:4px}
 .bv-actions .act-list{display:flex;flex-wrap:wrap;gap:4px}
@@ -361,6 +388,7 @@ header{
 .bv-actions .act-btn.end{border-color:var(--warn);color:var(--warn)}
 .bv-actions .act-btn.end:hover{background:var(--warn);color:#000}
 
+/* log */
 .bv-log{flex-shrink:0;max-height:80px;overflow-y:auto;background:#0b0d13;padding:4px 8px;font-family:ui-monospace,monospace;font-size:10px;line-height:1.5;border-top:1px solid var(--line);scrollbar-width:thin}
 .bv-log .ta{color:#7fe3e1}.bv-log .tb{color:#b9a6ff}.bv-log .ko{color:#ff9ba0;font-weight:700}
 .bv-log .log-line{white-space:pre-wrap}
@@ -370,16 +398,15 @@ header{
 .bv-result .win-a{color:#5ad1cf}.bv-result .win-b{color:#9a7cff}
 .bv-result .detail{font-size:13px;color:var(--muted)}
 
-.bv-oshi{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--line);flex-shrink:0}
-
 @keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(90,209,207,.3)}50%{box-shadow:0 0 12px rgba(90,209,207,.7)}}
 
 @media(min-width:600px){
-  .bv-slot{width:72px}
-  .bv-slot .card-thumb{width:70px;height:98px}
-  .bv-slot .hp-bar{width:66px}
-  .bv-slot .slot-label{max-width:72px;font-size:9px}
-  .bv-hand .hand-card{width:60px;height:84px}
+  .bv-slot{width:68px}
+  .bv-slot .card-thumb{width:66px;height:92px}
+  .bv-slot .hp-bar{width:62px}
+  .bv-slot .slot-label{max-width:68px;font-size:8px}
+  .bv-hand .hand-card{width:56px;height:78px}
+  .bv-zone-left .zone-stack,.bv-zone-right .zone-stack{width:42px;height:58px;font-size:10px}
 }
 
 .card-popup{display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);max-width:320px;width:90vw;overflow:hidden;pointer-events:none}
@@ -467,15 +494,23 @@ header{
   </div>
   <div class="bv-field" id="bvField">
     <div class="bv-half op" id="bvOpHalf">
-      <div class="bv-info-bar" id="bvOpInfo"></div>
-      <div class="bv-back" id="bvOpBack"></div>
-      <div class="bv-center-area" id="bvOpCenter"></div>
+      <div class="bv-name-bar" id="bvOpInfo"></div>
+      <div class="bv-zone-left" id="bvOpLeft"></div>
+      <div class="bv-zone-center" id="bvOpStage">
+        <div class="bv-stage-row" id="bvOpFront"></div>
+        <div class="bv-back-row" id="bvOpBack"></div>
+      </div>
+      <div class="bv-zone-right" id="bvOpRight"></div>
     </div>
     <div class="bv-divider"></div>
     <div class="bv-half me" id="bvMeHalf">
-      <div class="bv-center-area" id="bvMeCenter"></div>
-      <div class="bv-back" id="bvMeBack"></div>
-      <div class="bv-info-bar" id="bvMeInfo"></div>
+      <div class="bv-name-bar" id="bvMeInfo"></div>
+      <div class="bv-zone-left" id="bvMeLeft"></div>
+      <div class="bv-zone-center" id="bvMeStage">
+        <div class="bv-stage-row" id="bvMeFront"></div>
+        <div class="bv-back-row" id="bvMeBack"></div>
+      </div>
+      <div class="bv-zone-right" id="bvMeRight"></div>
     </div>
   </div>
   <div class="bv-hand" id="bvHand"></div>
@@ -6972,43 +7007,74 @@ function renderSlot(h, selectable, onClick) {
   return d;
 }
 
-function renderInfoBar(p, isOp) {
+function renderNameBar(p, isOp) {
   const pipHtml = Array.from({length: p.oshi.lf || 0}, (_, i) =>
     `<span class="pip${i >= p.life ? ' lost' : ''}"></span>`).join('');
-  return `<div class="bv-info-bar">
-    ${p.oshi.img ? `<img class="bv-oshi" src="${p.oshi.img}" alt="${esc(p.oshi.nm)}">` : ''}
-    <span class="name">${isOp ? '🟪 ' : '🟦 '}${esc(p.name)}</span>
-    <span class="life-pips">${pipHtml}</span>
-    <span class="counts">
-      <span>🃏${typeof p.hand === 'number' ? p.hand : p.hand.length}</span>
-      <span>📦${p.deckCount}</span>
-      <span>💎${p.holoPowerCount}</span>
-      <span>♻${p.archiveCount}</span>
-    </span>
-  </div>`;
+  return `<span class="name">${isOp ? '🟪 ' : '🟦 '}${esc(p.name)}</span>
+    <span class="life-pips">${pipHtml}</span>`;
+}
+
+function renderZoneLeft(p) {
+  return `<div class="zone-stack life">${p.life}</div>
+    <div class="zone-label">ライフ</div>
+    <div class="zone-stack cheer-pile">${p.cheerDeckCount}</div>
+    <div class="zone-label">エール</div>`;
+}
+
+function renderZoneRight(p) {
+  return `<div class="zone-stack hp-zone">${p.holoPowerCount}</div>
+    <div class="zone-label">ホロパワー</div>
+    <div class="zone-stack deck-zone">${p.deckCount}</div>
+    <div class="zone-label">デッキ</div>
+    <div class="zone-stack archive-zone">${p.archiveCount}</div>
+    <div class="zone-label">アーカイブ</div>`;
+}
+
+function renderOshiSlot(oshi) {
+  const d = el('div', 'bv-slot oshi-slot');
+  d.innerHTML = `${oshi.img ? `<img class="card-thumb" src="${oshi.img}" alt="${esc(oshi.nm)}" loading="lazy">` : `<div class="card-thumb" style="background:var(--bg3);display:grid;place-items:center;font-size:8px">${esc(oshi.nm)}</div>`}
+    <span class="slot-label">${esc(oshi.nm)}</span>`;
+  attachPopupEvents(d, oshi.n, null);
+  return d;
+}
+
+function renderFrontRow(container, p, isMe) {
+  container.innerHTML = '';
+  const collabSlot = p.collab ? renderSlot(p.collab, false) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">コラボ</div>'; return e; })();
+  const centerSlot = p.center ? renderSlot(p.center, false) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">センター</div>'; return e; })();
+  const oshiSlot = renderOshiSlot(p.oshi);
+  if (isMe) {
+    container.appendChild(collabSlot);
+    container.appendChild(centerSlot);
+    container.appendChild(oshiSlot);
+  } else {
+    container.appendChild(oshiSlot);
+    container.appendChild(centerSlot);
+    container.appendChild(collabSlot);
+  }
 }
 
 function renderBattleState(snap, meKey) {
   const me = snap[meKey], op = snap[meKey === 'A' ? 'B' : 'A'];
-  const whoTurn = snap.turn % 2 === 1 ? (snap.A === me ? 'あなた' : '相手') : (snap.A === me ? '相手' : 'あなた');
+  const phaseMap = {reset:'リセット',draw:'手札',cheer:'エール',main:'メイン',art:'パフォーマンス'};
   $('#bvTurn').textContent = `ターン ${snap.turn || 0}`;
-  $('#bvPhase').textContent = snap.phase ? `[${snap.phase}]` : '';
+  $('#bvPhase').textContent = snap.phase ? `[${phaseMap[snap.phase] || snap.phase}ステップ]` : '';
 
   // Opponent half
-  $('#bvOpInfo').innerHTML = renderInfoBar(op, true);
+  $('#bvOpInfo').innerHTML = renderNameBar(op, true);
+  $('#bvOpLeft').innerHTML = renderZoneLeft(op);
+  $('#bvOpRight').innerHTML = renderZoneRight(op);
+  renderFrontRow($('#bvOpFront'), op, false);
   const opBack = $('#bvOpBack'); opBack.innerHTML = '';
   op.back.forEach(h => { if (h) opBack.appendChild(renderSlot(h, false)); });
-  const opCenter = $('#bvOpCenter'); opCenter.innerHTML = '';
-  if (op.collab) opCenter.appendChild(renderSlot(op.collab, false));
-  opCenter.appendChild(renderSlot(op.center, false));
 
   // My half
-  $('#bvMeInfo').innerHTML = renderInfoBar(me, false);
+  $('#bvMeInfo').innerHTML = renderNameBar(me, false);
+  $('#bvMeLeft').innerHTML = renderZoneLeft(me);
+  $('#bvMeRight').innerHTML = renderZoneRight(me);
+  renderFrontRow($('#bvMeFront'), me, true);
   const meBack = $('#bvMeBack'); meBack.innerHTML = '';
   me.back.forEach(h => { if (h) meBack.appendChild(renderSlot(h, false)); });
-  const meCenter = $('#bvMeCenter'); meCenter.innerHTML = '';
-  meCenter.appendChild(renderSlot(me.center, false));
-  if (me.collab) meCenter.appendChild(renderSlot(me.collab, false));
 
   // Hand
   const hand = $('#bvHand'); hand.innerHTML = '';
@@ -7159,11 +7225,15 @@ function startInteractiveBattle(deckA, deckB) {
   $('#bvLog').innerHTML = '';
   $('#bvHand').innerHTML = '';
   $('#bvOpInfo').innerHTML = '';
+  $('#bvOpLeft').innerHTML = '';
+  $('#bvOpFront').innerHTML = '';
   $('#bvOpBack').innerHTML = '';
-  $('#bvOpCenter').innerHTML = '';
+  $('#bvOpRight').innerHTML = '';
   $('#bvMeInfo').innerHTML = '';
+  $('#bvMeLeft').innerHTML = '';
+  $('#bvMeFront').innerHTML = '';
   $('#bvMeBack').innerHTML = '';
-  $('#bvMeCenter').innerHTML = '';
+  $('#bvMeRight').innerHTML = '';
   const res = $('#bvField').querySelector('.bv-result');
   if (res) res.remove();
 
