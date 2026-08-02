@@ -305,6 +305,82 @@ header{
   .grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;padding:12px}
   #btnShare,#btnExport{display:inline-flex}
 }
+
+/* =============== interactive battle view =============== */
+#battleView{display:none;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;overflow:hidden}
+#battleView.open{display:flex}
+.bv-top{display:flex;align-items:center;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--line);gap:8px;flex-shrink:0}
+.bv-top .turn-info{flex:1;font-weight:700;font-size:14px;color:var(--accent)}
+.bv-top .phase-info{font-size:11px;color:var(--muted)}
+.bv-quit{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:12px}
+
+.bv-field{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.bv-half{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 8px}
+.bv-half.op{flex:0 0 auto}
+.bv-half.me{flex:0 0 auto}
+.bv-stage{display:flex;justify-content:center;gap:8px;position:relative;flex:1;min-height:0;align-items:center}
+.bv-divider{height:2px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:2px 0}
+
+.bv-info-bar{display:flex;align-items:center;gap:6px;padding:2px 8px;font-size:11px;color:var(--muted)}
+.bv-info-bar .name{font-weight:700;color:var(--text);font-size:13px}
+.bv-info-bar .life-pips{display:flex;gap:2px}
+.bv-info-bar .pip{width:10px;height:10px;border-radius:50%;background:var(--err);border:1px solid rgba(255,255,255,.2)}
+.bv-info-bar .pip.lost{background:var(--bg3);opacity:.3}
+.bv-info-bar .counts{margin-left:auto;display:flex;gap:8px;font-size:10px}
+
+.bv-slot{width:56px;display:flex;flex-direction:column;align-items:center;position:relative;cursor:pointer;transition:transform .15s}
+.bv-slot:hover{transform:scale(1.05)}
+.bv-slot.selectable{animation:pulse 1.2s infinite}
+.bv-slot.selected{outline:2px solid var(--accent);border-radius:6px}
+.bv-slot .card-thumb{width:54px;height:76px;border-radius:5px;object-fit:cover;border:2px solid var(--line);display:block}
+.bv-slot.selectable .card-thumb{border-color:var(--accent);box-shadow:0 0 8px rgba(90,209,207,.5)}
+.bv-slot .hp-bar{width:50px;height:4px;background:var(--bg3);border-radius:2px;margin-top:2px;overflow:hidden}
+.bv-slot .hp-fill{height:100%;background:var(--ok);transition:width .3s}
+.bv-slot .hp-fill.warn{background:var(--warn)}
+.bv-slot .hp-fill.crit{background:var(--err)}
+.bv-slot .slot-label{font-size:8px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56px}
+.bv-slot .cheer-dots{display:flex;gap:1px;justify-content:center;flex-wrap:wrap;max-width:56px}
+.bv-slot .cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.bv-slot-empty{width:54px;height:76px;border-radius:5px;border:2px dashed var(--line);opacity:.3}
+.bv-slot .dmg-text{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);color:var(--err);font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px}
+.bv-slot .buff-text{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.7);color:var(--accent);font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px}
+.bv-back{display:flex;gap:4px;justify-content:center}
+.bv-center-area{display:flex;gap:12px;justify-content:center;align-items:center}
+.bv-pos-label{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);background:var(--bg);padding:0 3px;white-space:nowrap}
+
+.bv-hand{flex-shrink:0;overflow-x:auto;display:flex;gap:4px;padding:4px 8px;background:var(--bg2);border-top:1px solid var(--line);scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.bv-hand .hand-card{width:48px;height:68px;border-radius:4px;object-fit:cover;border:2px solid var(--line);cursor:pointer;flex-shrink:0;transition:transform .15s}
+.bv-hand .hand-card:hover{transform:translateY(-4px)}
+.bv-hand .hand-card.selectable{border-color:var(--accent);box-shadow:0 0 6px rgba(90,209,207,.4)}
+
+.bv-actions{flex-shrink:0;background:var(--bg2);border-top:1px solid var(--line);padding:6px 8px;max-height:180px;overflow-y:auto}
+.bv-actions .prompt{font-size:12px;color:var(--accent);font-weight:700;margin-bottom:4px}
+.bv-actions .act-list{display:flex;flex-wrap:wrap;gap:4px}
+.bv-actions .act-btn{background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;transition:background .15s}
+.bv-actions .act-btn:hover{background:var(--accent);color:#000}
+.bv-actions .act-btn.end{border-color:var(--warn);color:var(--warn)}
+.bv-actions .act-btn.end:hover{background:var(--warn);color:#000}
+
+.bv-log{flex-shrink:0;max-height:80px;overflow-y:auto;background:#0b0d13;padding:4px 8px;font-family:ui-monospace,monospace;font-size:10px;line-height:1.5;border-top:1px solid var(--line);scrollbar-width:thin}
+.bv-log .ta{color:#7fe3e1}.bv-log .tb{color:#b9a6ff}.bv-log .ko{color:#ff9ba0;font-weight:700}
+.bv-log .log-line{white-space:pre-wrap}
+
+.bv-result{position:absolute;inset:0;background:rgba(14,16,22,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:10}
+.bv-result h2{font-size:24px;margin:0}
+.bv-result .win-a{color:#5ad1cf}.bv-result .win-b{color:#9a7cff}
+.bv-result .detail{font-size:13px;color:var(--muted)}
+
+.bv-oshi{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--line);flex-shrink:0}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(90,209,207,.3)}50%{box-shadow:0 0 12px rgba(90,209,207,.7)}}
+
+@media(min-width:600px){
+  .bv-slot{width:72px}
+  .bv-slot .card-thumb{width:70px;height:98px}
+  .bv-slot .hp-bar{width:66px}
+  .bv-slot .slot-label{max-width:72px;font-size:9px}
+  .bv-hand .hand-card{width:60px;height:84px}
+}
 </style>
 </head>
 <body>
@@ -366,6 +442,30 @@ header{
   <button data-view="battle"><span class="ico">⚔</span>対戦</button>
   <button data-view="more"><span class="ico">…</span>その他</button>
 </nav>
+
+<div id="battleView">
+  <div class="bv-top">
+    <span class="turn-info" id="bvTurn">対戦準備中</span>
+    <span class="phase-info" id="bvPhase"></span>
+    <button class="bv-quit" id="bvQuit">✕ 退出</button>
+  </div>
+  <div class="bv-field" id="bvField">
+    <div class="bv-half op" id="bvOpHalf">
+      <div class="bv-info-bar" id="bvOpInfo"></div>
+      <div class="bv-back" id="bvOpBack"></div>
+      <div class="bv-center-area" id="bvOpCenter"></div>
+    </div>
+    <div class="bv-divider"></div>
+    <div class="bv-half me" id="bvMeHalf">
+      <div class="bv-center-area" id="bvMeCenter"></div>
+      <div class="bv-back" id="bvMeBack"></div>
+      <div class="bv-info-bar" id="bvMeInfo"></div>
+    </div>
+  </div>
+  <div class="bv-hand" id="bvHand"></div>
+  <div class="bv-actions" id="bvActions" style="display:none"></div>
+  <div class="bv-log" id="bvLog"></div>
+</div>
 
 <div class="modal" id="modal"><div class="modalbox" id="modalBox"></div></div>
 <div class="dlg" id="dlg"><div class="dlgbox" id="dlgBox"></div></div>
@@ -5483,6 +5583,600 @@ header{
     return { winner, turns: this.turn, log: this.log, reason: this[winner === 'A' ? 'B' : 'A'].lostReason };
   };
 
+  /* ================= Interactive (generator-based) game loop ================= */
+
+  /* --- AI decision helpers (extracted from inline heuristics) --- */
+  function aiPickCheerTarget(candidates, cheerColor, game) {
+    let target = null, bestScore = -1;
+    for (const h of candidates) {
+      const arts = game.DB.get(h.card.n).arts;
+      if (!arts.length) continue;
+      const top = arts.reduce((best, a) => (a.power > (best ? best.power : -1) ? a : best), null);
+      if (!top) continue;
+      let score = 0;
+      if (!canPay(effCost(top, h), h.cheer)) {
+        score += 100;
+        const needs = effCost(top, h).colors;
+        if (needs[cheerColor]) score += 50;
+      }
+      if (game.allHolos(game.A).includes(h) ? h === game.A.center : h === game.B.center) score += 10;
+      if (score > bestScore) { bestScore = score; target = h; }
+    }
+    return target || candidates[0];
+  }
+
+  function aiPickLifeCheerTarget(candidates, game) {
+    for (const h of candidates) {
+      const arts = game.DB.get(h.card.n).arts;
+      if (arts.length && !canPay(effCost(arts[arts.length - 1], h), h.cheer)) return h;
+    }
+    return candidates[0];
+  }
+
+  function aiPickSetupCenter(debuts, game) {
+    return debuts.sort((a, b) => topArtPower(b, game.DB) - topArtPower(a, game.DB) || (b.hp || 0) - (a.hp || 0))[0];
+  }
+
+  function aiPickSetupBack(debuts, game) {
+    return debuts.sort((a, b) => topArtPower(b, game.DB) - topArtPower(a, game.DB) || (b.hp || 0) - (a.hp || 0)).slice(0, 3);
+  }
+
+  function aiPickPromoteCenter(backHolos, game) {
+    return backHolos.sort((a, b) => topArtPower(b.card, game.DB) - topArtPower(a.card, game.DB))[0];
+  }
+
+  function aiGetMainActions(p, op, turnNo, game) {
+    const actions = [];
+    const allH = game.allHolos(p);
+    // Bloom options
+    for (const holo of allH) {
+      if (!holo || holo.playedTurn === turnNo) continue;
+      const next = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
+      if (!next) continue;
+      const idx = p.hand.findIndex((c) => c.t === 'holomen' && c.nm === holo.card.nm && c.bl === next);
+      if (idx >= 0) actions.push({ act: 'bloom', holoId: holo.id, handIdx: idx, label: `ブルーム: ${holo.card.nm} → ${next}` });
+    }
+    // Place Debut
+    if (p.back.length + (p.collab ? 1 : 0) < 5) {
+      p.hand.forEach((c, i) => {
+        if (c.t === 'holomen' && c.bl === 'Debut') {
+          actions.push({ act: 'placeDebut', handIdx: i, label: `ステージに出す: ${c.nm}` });
+        }
+      });
+    }
+    // Support cards
+    if (game.effectsOn) {
+      p.hand.forEach((c, i) => {
+        if (c.t !== 'support') return;
+        const fx = fxOf(game.DB, c.n);
+        const isLimited = !!(c.ltd);
+        if (isLimited && p.limitedUsedTurn) return;
+        if (!fx || !fx.ability) return;
+        const key = abilityKey(c.n, 'sup');
+        if (!canUse(p, key, fx.ability.once || 'turn')) return;
+        actions.push({ act: 'playSupport', handIdx: i, label: `サポート使用: ${c.nm}` });
+      });
+    }
+    // Collab
+    if (!p.collab && !p.usedCollab) {
+      p.back.filter((h) => !h.rested && h.playedTurn !== turnNo).forEach((h) => {
+        actions.push({ act: 'collab', holoId: h.id, label: `コラボ: ${h.card.nm}` });
+      });
+    }
+    // Oshi skill
+    if (game.effectsOn) {
+      const fx = fxOf(game.DB, p.oshiCard.n);
+      if (fx && fx.oshi && canUse(p, abilityKey(p.oshiCard.n, 'oshi'), 'turn') && p.deck.length > ((fx.oshi.cost && fx.oshi.cost.holopower) || 0) + 5) {
+        actions.push({ act: 'oshiSkill', label: `推しスキル: ${fx.oshi.name || ''}`, cost: (fx.oshi.cost && fx.oshi.cost.holopower) || 0 });
+      }
+      if (fx && fx.sp && canUse(p, abilityKey(p.oshiCard.n, 'sp'), 'game') && p.deck.length > ((fx.sp.cost && fx.sp.cost.holopower) || 0) + 5) {
+        actions.push({ act: 'spSkill', label: `SP推しスキル: ${fx.sp.name || ''}`, cost: (fx.sp.cost && fx.sp.cost.holopower) || 0 });
+      }
+    }
+    // Baton touch
+    if (p.center && p.back.length) {
+      const need = game.DB.get(p.center.card.n).baton;
+      if (p.center.cheer.length >= need) {
+        p.back.filter((h) => !h.rested).forEach((h) => {
+          actions.push({ act: 'baton', holoId: h.id, label: `バトンタッチ: → ${h.card.nm}`, cost: need });
+        });
+      }
+    }
+    return actions;
+  }
+
+  function aiPickMainAction(actions, p, op, game) {
+    // Priority: bloom > place debut (up to 3) > support > collab > oshi > baton > end
+    const priority = { bloom: 1, placeDebut: 2, playSupport: 3, collab: 4, oshiSkill: 5, spSkill: 6, baton: 7 };
+    const sorted = actions.filter((a) => a.act !== 'endMain').sort((a, b) => (priority[a.act] || 99) - (priority[b.act] || 99));
+    if (!sorted.length) return { act: 'endMain' };
+
+    const pick = sorted[0];
+    // Limit debut placement to 3 back
+    if (pick.act === 'placeDebut' && p.back.length >= 3) {
+      const nonDebut = sorted.filter((a) => a.act !== 'placeDebut');
+      return nonDebut.length ? nonDebut[0] : { act: 'endMain' };
+    }
+    // Baton touch: only if center can't attack or is near death
+    if (pick.act === 'baton') {
+      const art = bestArt(p.center, game.DB);
+      const hp = (p.center.card.hp || 0);
+      const remaining = hp - p.center.dmg;
+      if (art && remaining > hp * 0.3) return { act: 'endMain' };
+    }
+    // SP skill: save for later turns
+    if (pick.act === 'spSkill') {
+      const fx = fxOf(game.DB, p.oshiCard.n);
+      if (fx && fx.sp) {
+        const cost = (fx.sp.cost && fx.sp.cost.holopower) || 0;
+        if (p.deck.length <= cost + 8) return { act: 'endMain' };
+        if (game.turn < 4 && cost >= 3) {
+          const nonSP = sorted.filter((a) => a.act !== 'spSkill');
+          return nonSP.length ? nonSP[0] : { act: 'endMain' };
+        }
+      }
+    }
+    // Oshi skill: check AI heuristic
+    if (pick.act === 'oshiSkill') {
+      const fx = fxOf(game.DB, p.oshiCard.n);
+      if (fx && fx.oshi) {
+        const cost = (fx.oshi.cost && fx.oshi.cost.holopower) || 0;
+        if (cost >= 3 && p.deck.length < 12) return { act: 'endMain' };
+        const ops = fx.oshi.do || [];
+        if (ops.some((a) => a.op === 'buffArt') && !p.center) {
+          const nonOshi = sorted.filter((a) => a.act !== 'oshiSkill');
+          return nonOshi.length ? nonOshi[0] : { act: 'endMain' };
+        }
+      }
+    }
+    return pick;
+  }
+
+  function aiPickArt(holo, game) {
+    const art = bestArt(holo, game.DB);
+    return art ? art.idx : -1;
+  }
+
+  /* --- aiResolve: given a decision object, return AI's choice --- */
+  function aiResolve(decision, game) {
+    const p = game[decision.player];
+    const op = decision.player === 'A' ? game.B : game.A;
+    switch (decision.type) {
+      case 'setupCenter': return aiPickSetupCenter(decision.candidates, game).n;
+      case 'setupBack': return aiPickSetupBack(decision.candidates, game).map((c) => c.n);
+      case 'cheerTarget': return aiPickCheerTarget(decision.candidates, decision.cheerColor, game).id;
+      case 'lifeCheerTarget': return aiPickLifeCheerTarget(decision.candidates, game).id;
+      case 'promoteCenter': return aiPickPromoteCenter(decision.candidates, game).id;
+      case 'mainAction': return aiPickMainAction(decision.actions, p, op, game);
+      case 'artChoice': return aiPickArt(decision.holo, game);
+      case 'supportTarget': {
+        const t = pickTopAttacker(decision.candidates, game.DB);
+        return t ? t.id : decision.candidates[0].id;
+      }
+      default: return null;
+    }
+  }
+
+  /* --- snapshot: serialize visible game state for UI rendering --- */
+  function snapshot(game) {
+    const snapHolo = (h) => h ? {
+      id: h.id, n: h.card.n, nm: h.card.nm, hp: h.card.hp || 0, dmg: h.dmg,
+      bl: h.card.bl, cheer: h.cheer.slice(), rested: h.rested,
+      colors: h.card.c || [], tags: h.card.tg || [],
+      buffArt: h.buffArt || 0, img: h.card.img,
+      attachments: (h.attachments || []).map((a) => ({ n: a.n, nm: a.nm })),
+    } : null;
+    const snapP = (p, hideHand) => ({
+      name: p.name, life: p.life, deckCount: p.deck.length,
+      cheerDeckCount: p.cheerDeck.length, archiveCount: p.archive.length,
+      holoPowerCount: p.holoPower.length,
+      oshi: { n: p.oshiCard.n, nm: p.oshiCard.nm, lf: p.oshiCard.lf, img: p.oshiCard.img, c: p.oshiCard.c },
+      center: snapHolo(p.center), collab: snapHolo(p.collab),
+      back: p.back.map(snapHolo),
+      hand: hideHand ? p.hand.length : p.hand.map((c) => ({ n: c.n, nm: c.nm, t: c.t, bl: c.bl, hp: c.hp, c: c.c, img: c.img, st: c.st, ltd: c.ltd })),
+      lost: p.lost, lostReason: p.lostReason,
+    });
+    return {
+      turn: game.turn, phase: game._phase || '',
+      A: snapP(game.A, false), B: snapP(game.B, false),
+      log: game.log.slice(-50),
+    };
+  }
+
+  /* --- Interactive game loop (generator) --- */
+  Game.prototype.setupInteractive = function* () {
+    for (const p of [this.A, this.B]) {
+      const rnd = this.rndFor(p);
+      let tries = 0;
+      do {
+        p.hand.forEach((c) => p.deck.push(c)); p.hand = [];
+        if (tries > 0) shuffle(p.deck, rnd);
+        this.draw(p, 7); tries++;
+      } while (tries < 4 && !p.hand.some((c) => c.t === 'holomen' && c.bl === 'Debut'));
+
+      const debuts = p.hand.filter((c) => c.t === 'holomen' && c.bl === 'Debut');
+      if (!debuts.length) { p.lost = true; p.lostReason = 'Debut不在'; continue; }
+
+      const who = p === this.A ? 'A' : 'B';
+      // Choose center
+      const centerChoice = yield { type: 'setupCenter', player: who, candidates: debuts, prompt: 'センターに出すDebutホロメンを選択' };
+      const center = debuts.find((c) => c.n === centerChoice) || debuts[0];
+      p.center = makeHolo(center); p.center.playedTurn = 0;
+      p.hand.splice(p.hand.indexOf(center), 1);
+
+      // Choose back stage (up to 3)
+      const remainDebuts = p.hand.filter((c) => c.t === 'holomen' && c.bl === 'Debut');
+      if (remainDebuts.length) {
+        const backChoice = yield { type: 'setupBack', player: who, candidates: remainDebuts, prompt: 'バックステージに出すDebutホロメンを選択（最大3枚）' };
+        const backNums = Array.isArray(backChoice) ? backChoice : [backChoice];
+        for (const bn of backNums.slice(0, 3)) {
+          const bc = p.hand.find((c) => c.n === bn && c.t === 'holomen' && c.bl === 'Debut');
+          if (bc) { p.back.push(Object.assign(makeHolo(bc), { playedTurn: 0 })); p.hand.splice(p.hand.indexOf(bc), 1); }
+        }
+      }
+      p.lifeCards = p.cheerDeck.splice(0, p.life);
+    }
+    this.push('', `先攻: ${this[this.first].name}`);
+    yield { type: 'event', event: 'setupDone', msg: `先攻: ${this[this.first].name}` };
+  };
+
+  Game.prototype.attachCheerInteractive = function* (p) {
+    if (!p.cheerDeck.length) return;
+    const cheer = p.cheerDeck.shift();
+    const col = (cheer.c && cheer.c[0]) || '無';
+    const candidates = [p.center, p.collab, ...p.back].filter(Boolean);
+    if (!candidates.length) return;
+    const who = p === this.A ? 'A' : 'B';
+    const choice = yield { type: 'cheerTarget', player: who, candidates, cheerColor: col, prompt: `${col}エールを付けるホロメンを選択` };
+    const target = candidates.find((h) => h.id === choice) || candidates[0];
+    target.cheer.push(col);
+    this.push('', `${p.name}: ${target.card.nm} に ${col}エール`);
+  };
+
+  Game.prototype.downCenterInteractive = function* (op, me) {
+    const downed = op.center;
+    if (this.effectsOn) {
+      const fx = fxOf(this.DB, downed.card.n);
+      if (fx && fx.keywords) {
+        fx.keywords.filter((k) => k.trigger === 'onDowned').forEach((k, i) => {
+          tryRunAbility(this, op, me, k, abilityKey(downed.card.n, 'kwDown' + i), downed, this.rndFor(op));
+        });
+      }
+      if (downed.attachments) {
+        downed.attachments.forEach((att) => {
+          const afx = fxOf(this.DB, att.n);
+          if (afx && afx.keywords) {
+            afx.keywords.filter((k) => k.trigger === 'onDowned').forEach((k, i) => {
+              tryRunAbility(this, op, me, k, abilityKey(att.n, 'attDown' + i), downed, this.rndFor(op));
+            });
+          }
+        });
+      }
+    }
+    op.archive.push(downed.card);
+    downed.cheer.forEach((c) => op.archive.push({ t: 'cheer', c: [c] }));
+    op.center = null;
+    const opWho = op === this.A ? 'A' : 'B';
+    if (op.lifeCards && op.lifeCards.length > 0) {
+      const lifeCheer = op.lifeCards.pop();
+      op.life = op.lifeCards.length;
+      const col = (lifeCheer.c && lifeCheer.c[0]) || '無';
+      this.push('ko', `　⤷ ${op.name} のホロメンがダウン！ ライフ -1（残り${op.life}）`);
+      yield { type: 'event', event: 'downed', msg: `${downed.card.nm} がダウン！` };
+      const candidates = this.allHolos(op);
+      if (candidates.length) {
+        const lifeChoice = yield { type: 'lifeCheerTarget', player: opWho, candidates, cheerColor: col, prompt: `ライフから${col}エールを付けるホロメンを選択` };
+        const target = candidates.find((h) => h.id === lifeChoice) || candidates[0];
+        target.cheer.push(col);
+        this.push('', `　${op.name}: ライフから${target.card.nm} に ${col}エール`);
+      }
+    } else {
+      op.life = 0; op.lost = true; op.lostReason = 'ライフ0でダウン';
+      this.push('ko', `　⤷ ${op.name} のホロメンがダウン！ ライフ0 → 敗北`);
+      return;
+    }
+    if (op.back.length) {
+      const promoteChoice = yield { type: 'promoteCenter', player: opWho, candidates: op.back, prompt: 'センターに出すホロメンを選択' };
+      const promote = op.back.find((h) => h.id === promoteChoice) || op.back[0];
+      op.back.splice(op.back.indexOf(promote), 1); op.center = promote;
+      this.push('', `　${op.name}: ${promote.card.nm} がセンターへ`);
+    } else if (op.collab) {
+      op.center = op.collab; op.collab = null;
+    } else {
+      op.lost = true; op.lostReason = 'ホロメン全滅';
+    }
+  };
+
+  Game.prototype.executeMainAction = function* (p, op, action) {
+    const rnd = this.rndFor(p);
+    const who = p === this.A ? 'A' : 'B';
+    switch (action.act) {
+      case 'bloom': {
+        const holo = this.allHolos(p).find((h) => h.id === action.holoId);
+        if (!holo) break;
+        const bl = p.hand[action.handIdx];
+        if (!bl) break;
+        const prevCard = holo.card;
+        p.hand.splice(action.handIdx, 1);
+        holo.card = bl; holo.bloomedTurn = this.turn;
+        this.push('', `${p.name}: ${bl.nm} に ブルーム(${bl.bl})`);
+        if (this.effectsOn) {
+          const prevFx = fxOf(this.DB, prevCard.n);
+          if (prevFx && prevFx.keywords) {
+            prevFx.keywords.filter((k) => k.trigger === 'onGift').forEach((k, i) => {
+              tryRunAbility(this, p, op, k, abilityKey(prevCard.n, 'gift' + i), holo, rnd);
+              this.push('', `${p.name}: ${prevCard.nm} のギフト効果`);
+            });
+          }
+          const fx = fxOf(this.DB, bl.n);
+          if (fx && fx.keywords) {
+            fx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
+              tryRunAbility(this, p, op, k, abilityKey(bl.n, 'kwB' + i), holo, rnd);
+            });
+          }
+          if (holo.attachments) {
+            holo.attachments.forEach((att) => {
+              const afx = fxOf(this.DB, att.n);
+              if (afx && afx.keywords) {
+                afx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
+                  tryRunAbility(this, p, op, k, abilityKey(att.n, 'attB' + i), holo, rnd);
+                });
+              }
+            });
+          }
+        }
+        break;
+      }
+      case 'placeDebut': {
+        const c = p.hand[action.handIdx];
+        if (!c) break;
+        p.hand.splice(action.handIdx, 1);
+        p.back.push(Object.assign(makeHolo(c), { playedTurn: this.turn }));
+        this.push('', `${p.name}: ${c.nm} をバックに出す`);
+        break;
+      }
+      case 'playSupport': {
+        const card = p.hand[action.handIdx];
+        if (!card) break;
+        const fx = fxOf(this.DB, card.n);
+        if (!fx || !fx.ability) break;
+        const key = abilityKey(card.n, 'sup');
+        const isLimited = !!(card.ltd);
+        if (card.st === 'ツール' || card.st === 'マスコット' || card.st === 'ファン') {
+          const targets = this.allHolos(p).filter((h) => !fx.attachFilter || matchesFilter(h.card, fx.attachFilter));
+          if (targets.length) {
+            let host;
+            if (targets.length === 1) {
+              host = targets[0];
+            } else {
+              const attachChoice = yield { type: 'supportTarget', player: who, candidates: targets, prompt: `${card.nm} を付けるホロメンを選択` };
+              host = targets.find((h) => h.id === attachChoice) || targets[0];
+            }
+            host.attachments.push(card);
+            p.hand.splice(action.handIdx, 1);
+            markUsed(p, key, 'game');
+            this.push('', `${p.name}: ${host.card.nm} に〈${card.nm}〉を付けた`);
+          }
+        } else {
+          p.hand.splice(action.handIdx, 1);
+          markUsed(p, key, fx.ability.once || 'turn');
+          if (isLimited) p.limitedUsedTurn = true;
+          const ctx = { game: this, me: p, op, self: p.center, rnd };
+          runActions(fx.ability.do, ctx);
+          p.archive.push(card);
+          this.push('', `${p.name}: 〈${card.nm}〉を使用`);
+        }
+        break;
+      }
+      case 'collab': {
+        const cand = p.back.find((h) => h.id === action.holoId);
+        if (!cand) break;
+        p.back.splice(p.back.indexOf(cand), 1); p.collab = cand; p.usedCollab = true;
+        this.push('', `${p.name}: ${cand.card.nm} をコラボ`);
+        if (this.effectsOn) {
+          const fx = fxOf(this.DB, cand.card.n);
+          if (fx && fx.keywords) {
+            fx.keywords.filter((k) => k.trigger === 'onCollab').forEach((k, i) => {
+              tryRunAbility(this, p, op, k, abilityKey(cand.card.n, 'kwC' + i), cand, rnd);
+            });
+          }
+        }
+        break;
+      }
+      case 'oshiSkill': {
+        const fx = fxOf(this.DB, p.oshiCard.n);
+        if (!fx || !fx.oshi) break;
+        const cost = (fx.oshi.cost && fx.oshi.cost.holopower) || 0;
+        for (let i = 0; i < cost && p.deck.length; i++) p.holoPower.push(p.deck.shift());
+        tryRunAbility(this, p, op, fx.oshi, abilityKey(p.oshiCard.n, 'oshi'), p.center, rnd);
+        this.push('', `${p.name}: 推しスキル「${fx.oshi.name || ''}」`);
+        break;
+      }
+      case 'spSkill': {
+        const fx = fxOf(this.DB, p.oshiCard.n);
+        if (!fx || !fx.sp) break;
+        const cost = (fx.sp.cost && fx.sp.cost.holopower) || 0;
+        for (let i = 0; i < cost && p.deck.length; i++) p.holoPower.push(p.deck.shift());
+        tryRunAbility(this, p, op, fx.sp, abilityKey(p.oshiCard.n, 'sp'), p.center, rnd);
+        this.push('', `${p.name}: SP推しスキル「${fx.sp.name || ''}」`);
+        break;
+      }
+      case 'baton': {
+        const better = p.back.find((h) => h.id === action.holoId);
+        if (!better) break;
+        const need = this.DB.get(p.center.card.n).baton;
+        for (let i = 0; i < need; i++) p.archive.push({ t: 'cheer', c: [p.center.cheer.pop()] });
+        p.back.splice(p.back.indexOf(better), 1);
+        const old = p.center; p.center = better; p.back.push(old);
+        this.push('', `${p.name}: バトンタッチ → ${better.card.nm} がセンター`);
+        break;
+      }
+    }
+  };
+
+  Game.prototype.performArtInteractive = function* (attacker, me, op) {
+    const who = me === this.A ? 'A' : 'B';
+    if (!op.center) return;
+    const entry = this.DB.get(attacker.card.n);
+    const payableArts = entry.arts.map((art, i) => ({ art, idx: i })).filter(({ art }) => canPay(effCost(art, attacker), attacker.cheer));
+    if (!payableArts.length) return;
+
+    let artIdx;
+    if (payableArts.length === 1) {
+      artIdx = payableArts[0].idx;
+    } else {
+      const artChoice = yield {
+        type: 'artChoice', player: who, holo: attacker,
+        arts: payableArts.map(({ art, idx }) => ({ idx, power: art.power + (attacker.buffArt || 0), cost: art.cost })),
+        prompt: `${attacker.card.nm} のアーツを選択`
+      };
+      artIdx = artChoice >= 0 ? artChoice : payableArts[payableArts.length - 1].idx;
+    }
+    const art = entry.arts[artIdx];
+    if (!art) return;
+
+    const attStatic = this.effectsOn ? this.applyAttachmentStatics(attacker) : { artBonus: 0 };
+    const dmg = art.power + (attacker.buffArt || 0) + attStatic.artBonus;
+    op.center.dmg += dmg;
+    const cls = me === this.A ? 'ta' : 'tb';
+    this.push(cls, `T${this.turn} ${me.name}: ${attacker.card.nm} → ${op.center.card.nm} に ${dmg}`);
+
+    if (this.effectsOn) {
+      const fx = fxOf(this.DB, attacker.card.n);
+      if (fx && fx.arts && fx.arts[artIdx]) {
+        tryRunAbility(this, me, op, fx.arts[artIdx], abilityKey(attacker.card.n, 'art' + artIdx), attacker, this.rndFor(me));
+      }
+      if (op.center) {
+        const defFx = fxOf(this.DB, op.center.card.n);
+        if (defFx && defFx.keywords) {
+          defFx.keywords.filter((k) => k.trigger === 'onDamageTaken').forEach((k, i) => {
+            if (op.center) tryRunAbility(this, op, me, k, abilityKey(op.center.card.n, 'kwD' + i), op.center, this.rndFor(op));
+          });
+        }
+      }
+    }
+
+    if (op.center && op.center.dmg >= ((op.center.card.hp || 0) + (this.effectsOn ? this.applyAttachmentStatics(op.center).hp - (op.center.card.hp || 0) : 0))) {
+      yield* this.downCenterInteractive(op, me);
+    }
+    yield { type: 'event', event: 'artDone' };
+  };
+
+  Game.prototype.takeTurnInteractive = function* (who) {
+    const me = this[who], op = who === 'A' ? this.B : this.A;
+    if (me.lost || op.lost) return;
+    this.turn++;
+    this._phase = 'reset';
+    if (me.collab) { me.back.push(me.collab); me.collab = null; }
+    this.allHolos(me).forEach((h) => { h.rested = false; h.buffArt = 0; h.costReduce = 0; });
+    me.usedCollab = false; me.usedTurn.clear(); me.limitedUsedTurn = false;
+
+    const isFirstEver = (this.turn === 1 && who === this.first);
+    this._phase = 'draw';
+    if (!isFirstEver) { this.draw(me, 1); yield { type: 'event', event: 'draw', player: who }; }
+    if (me.lost) return;
+
+    this._phase = 'cheer';
+    yield* this.attachCheerInteractive(me);
+    yield { type: 'event', event: 'cheerDone' };
+
+    this._phase = 'main';
+    let mainGuard = 0;
+    while (mainGuard++ < 30) {
+      const actions = aiGetMainActions(me, op, this.turn, this);
+      if (!actions.length) break;
+      actions.push({ act: 'endMain', label: 'メインフェイズ終了' });
+      const choice = yield { type: 'mainAction', player: who, actions, prompt: 'メインフェイズ：アクションを選択' };
+      if (!choice || choice.act === 'endMain') break;
+      yield* this.executeMainAction(me, op, choice);
+      if (me.lost || op.lost) return;
+    }
+
+    this._phase = 'art';
+    if (me.center && !me.lost && !op.lost) {
+      yield* this.performArtInteractive(me.center, me, op);
+    }
+    if (op.lost || me.lost) return;
+    if (me.collab && !me.lost && !op.lost) {
+      yield* this.performArtInteractive(me.collab, me, op);
+    }
+    if (me.collab) me.collab.rested = true;
+    this._phase = '';
+  };
+
+  Game.prototype.playInteractive = function* (maxTurns) {
+    yield* this.setupInteractive();
+    if (this.A.lost && this.B.lost) return this.finish(this.rndSys() < 0.5 ? 'A' : 'B');
+    if (this.A.lost) return this.finish('B');
+    if (this.B.lost) return this.finish('A');
+    const order = this.first === 'A' ? ['A', 'B'] : ['B', 'A'];
+    let idx = 0;
+    while (this.turn < (maxTurns || 60)) {
+      const who = order[idx % 2];
+      yield { type: 'event', event: 'turnStart', player: who, turn: this.turn + 1 };
+      yield* this.takeTurnInteractive(who);
+      const other = who === 'A' ? 'B' : 'A';
+      if (this[other].lost) return this.finish(who);
+      if (this[who].lost) return this.finish(other);
+      idx++;
+    }
+    let w;
+    if (this.A.life > this.B.life) w = 'A';
+    else if (this.B.life > this.A.life) w = 'B';
+    else w = this.rndSys() < 0.5 ? 'A' : 'B';
+    this.push('', '規定ターン到達：ライフ優勢で判定');
+    return this.finish(w, true);
+  };
+
+  /* --- BattleDriver: runs the generator, dispatches to AI or human --- */
+  function BattleDriver(game, humanPlayer, callbacks) {
+    this.game = game;
+    this.humanPlayer = humanPlayer; // 'A', 'B', or null (AI vs AI watch mode)
+    this.onState = callbacks.onState || function () {};
+    this.onDecision = callbacks.onDecision || function () {};
+    this.onEnd = callbacks.onEnd || function () {};
+    this.onLog = callbacks.onLog || function () {};
+    this._resolve = null;
+    this._running = false;
+    this._paused = false;
+    this.aiDelay = callbacks.aiDelay || 400;
+  }
+  BattleDriver.prototype.submitChoice = function (choice) {
+    if (this._resolve) { const r = this._resolve; this._resolve = null; r(choice); }
+  };
+  BattleDriver.prototype.run = async function (maxTurns) {
+    this._running = true;
+    const gen = this.game.playInteractive(maxTurns);
+    let result = gen.next();
+    while (!result.done && this._running) {
+      const d = result.value;
+      if (d.type === 'event') {
+        this.onLog(d);
+        this.onState(snapshot(this.game));
+        if (d.event === 'turnStart' || d.event === 'downed') {
+          await new Promise((r) => setTimeout(r, this.aiDelay));
+        }
+        result = gen.next();
+      } else if (this.humanPlayer && d.player === this.humanPlayer) {
+        this.onState(snapshot(this.game));
+        const choice = await new Promise((resolve) => { this._resolve = resolve; this.onDecision(d); });
+        result = gen.next(choice);
+      } else {
+        // AI resolves
+        if (this.aiDelay > 0) await new Promise((r) => setTimeout(r, Math.floor(this.aiDelay * (0.5 + Math.random() * 0.5))));
+        const choice = aiResolve(d, this.game);
+        this.onState(snapshot(this.game));
+        result = gen.next(choice);
+      }
+    }
+    if (result.done) {
+      this.onState(snapshot(this.game));
+      this.onEnd(result.value);
+    }
+    this._running = false;
+  };
+  BattleDriver.prototype.stop = function () { this._running = false; };
+
   /* ---------- public API ---------- */
   function buildDB(cards, effects) {
     const m = new Map();
@@ -5509,7 +6203,11 @@ header{
     return { wa, wb, games, avgTurn: (tsum / games), reasons };
   }
 
-  const api = { buildDB, playGame, simulate, analyzeCard, parseArt, canPay };
+  function createInteractiveGame(deckA, deckB, DB, opts) {
+    return new Game(deckA, deckB, DB, Object.assign({ log: true, effects: true }, opts || {}));
+  }
+
+  const api = { buildDB, playGame, simulate, analyzeCard, parseArt, canPay, createInteractiveGame, BattleDriver, snapshot, aiResolve };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.HoloEngine = api;
 })();
@@ -6178,16 +6876,38 @@ $('#btnBattle').onclick=()=>{
   const optsFrom=(arr,cur)=>arr.map((d,i)=>`<option value="${i}">${esc(d.name||'デッキ'+i)}（推し:${d.oshi?esc(BYNUM.get(d.oshi)?.nm||'?'):'なし'} / 主${mainCount(d.main||{})}）</option>`).join('');
   const curOpt=curValid?`<option value="cur">▶ 現在のデッキ（${esc(state.name)}）</option>`:'';
   if(!saved.length && !curValid){ openDlg(`<h3>⚔ 対戦シミュレーション</h3><p class="mini-note">対戦するには、デッキを2つ以上用意してください（「保存デッキ」で登録、または現在のデッキを構築）。</p><div class="row"><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>`); return; }
-  openDlg(`<h3>⚔ 対戦シミュレーション</h3>
-   <p class="mini-note">実際に盤面を持ってルール通りに自動対戦させ、勝率を推定します（ブルーム・エール経済・バトンタッチ・ライフ処理などを忠実に再現）。※カード固有効果は未実装で、アーツ火力/HP/色コストのみのバニラ相当です。</p>
-   <div class="field"><label>デッキ A</label><select id="bA">${curOpt}${optsFrom(saved)}</select></div>
-   <div class="field"><label>デッキ B（対戦相手）</label><select id="bB">${optsFrom(saved)}${curOpt}</select></div>
-   <div class="field"><label>試行回数</label><select id="bN"><option value="200">200戦</option><option value="500" selected>500戦</option><option value="2000">2000戦</option></select></div>
-   <div class="row"><button class="btn primary" id="bRun">対戦させる</button><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>
-   <div id="bResult"></div>`);
+  openDlg(`<h3>⚔ 対戦</h3>
+   <div class="field"><label>モード</label><select id="bMode"><option value="ai">🎮 AI対戦（自分で操作）</option><option value="sim">📊 シミュレーション（自動）</option></select></div>
+   <div id="bModeAI">
+     <p class="mini-note">あなたがプレイヤーAとしてAIと対戦します。すべての選択を自分で行います。</p>
+     <div class="field"><label>あなたのデッキ</label><select id="bAI_A">${curOpt}${optsFrom(saved)}</select></div>
+     <div class="field"><label>AI（対戦相手）</label><select id="bAI_B">${optsFrom(saved)}${curOpt}</select></div>
+     <div class="row"><button class="btn primary" id="bStartAI">⚔ 対戦開始</button><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>
+   </div>
+   <div id="bModeSim" style="display:none">
+     <p class="mini-note">実際に盤面を持ってルール通りに自動対戦させ、勝率を推定します。</p>
+     <div class="field"><label>デッキ A</label><select id="bA">${curOpt}${optsFrom(saved)}</select></div>
+     <div class="field"><label>デッキ B（対戦相手）</label><select id="bB">${optsFrom(saved)}${curOpt}</select></div>
+     <div class="field"><label>試行回数</label><select id="bN"><option value="200">200戦</option><option value="500" selected>500戦</option><option value="2000">2000戦</option></select></div>
+     <div class="row"><button class="btn primary" id="bRun">対戦させる</button><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>
+     <div id="bResult"></div>
+   </div>`);
   const getDeck=(v)=> v==='cur'?deckObj():getSaved()[Number(v)];
+  // mode toggle
+  $('#bMode').onchange=()=>{
+    const ai=$('#bMode').value==='ai';
+    $('#bModeAI').style.display=ai?'':'none';
+    $('#bModeSim').style.display=ai?'none':'';
+  };
   // 既定でBを別デッキに
-  if(saved.length && curValid) $('#bB').value='0';
+  if(saved.length && curValid){ $('#bB').value='0'; $('#bAI_B').value='0'; }
+  // AI battle start
+  $('#bStartAI').onclick=()=>{
+    const dA=getDeck($('#bAI_A').value), dB=getDeck($('#bAI_B').value);
+    if(!dA||!dB){toast('デッキを選択してください');return;}
+    closeDlg();
+    startInteractiveBattle(dA,dB);
+  };
   $('#bRun').onclick=()=>{
     const dA=getDeck($('#bA').value), dB=getDeck($('#bB').value);
     if(!dA||!dB){toast('デッキを選択してください');return;}
@@ -6211,6 +6931,235 @@ $('#btnBattle').onclick=()=>{
       <div class="battlelog">${logHtml}</div>`;
   };
 };
+
+/* ===================== interactive battle ===================== */
+let _battleDriver = null;
+
+function colorDot(col) {
+  return `<span class="cdot" style="background:${COLORVAR[col]||'var(--c-none)'}"></span>`;
+}
+
+function renderSlot(h, selectable, onClick) {
+  if (!h) { const d = el('div','bv-slot'); d.innerHTML='<div class="bv-slot-empty"></div>'; return d; }
+  const hp = h.hp || 1, dmg = h.dmg || 0, cur = Math.max(0, hp - dmg), pct = Math.round(cur / hp * 100);
+  const cls = pct > 50 ? '' : pct > 20 ? ' warn' : ' crit';
+  const d = el('div', 'bv-slot' + (selectable ? ' selectable' : ''));
+  d.innerHTML = `${h.img ? `<img class="card-thumb" src="${h.img}" alt="${esc(h.nm)}" loading="lazy">` : `<div class="card-thumb" style="background:var(--bg3);display:grid;place-items:center;font-size:9px">${esc(h.nm)}</div>`}
+    <div class="hp-bar"><div class="hp-fill${cls}" style="width:${pct}%"></div></div>
+    <div class="cheer-dots">${(h.cheer||[]).map(colorDot).join('')}</div>
+    <span class="slot-label">${esc(h.nm)}</span>
+    ${dmg ? `<span class="dmg-text">-${dmg}</span>` : ''}
+    ${h.buffArt ? `<span class="buff-text">+${h.buffArt}</span>` : ''}`;
+  if (onClick) d.onclick = () => onClick(h);
+  return d;
+}
+
+function renderInfoBar(p, isOp) {
+  const pipHtml = Array.from({length: p.oshi.lf || 0}, (_, i) =>
+    `<span class="pip${i >= p.life ? ' lost' : ''}"></span>`).join('');
+  return `<div class="bv-info-bar">
+    ${p.oshi.img ? `<img class="bv-oshi" src="${p.oshi.img}" alt="${esc(p.oshi.nm)}">` : ''}
+    <span class="name">${isOp ? '🟪 ' : '🟦 '}${esc(p.name)}</span>
+    <span class="life-pips">${pipHtml}</span>
+    <span class="counts">
+      <span>🃏${typeof p.hand === 'number' ? p.hand : p.hand.length}</span>
+      <span>📦${p.deckCount}</span>
+      <span>💎${p.holoPowerCount}</span>
+      <span>♻${p.archiveCount}</span>
+    </span>
+  </div>`;
+}
+
+function renderBattleState(snap, meKey) {
+  const me = snap[meKey], op = snap[meKey === 'A' ? 'B' : 'A'];
+  const whoTurn = snap.turn % 2 === 1 ? (snap.A === me ? 'あなた' : '相手') : (snap.A === me ? '相手' : 'あなた');
+  $('#bvTurn').textContent = `ターン ${snap.turn || 0}`;
+  $('#bvPhase').textContent = snap.phase ? `[${snap.phase}]` : '';
+
+  // Opponent half
+  $('#bvOpInfo').innerHTML = renderInfoBar(op, true);
+  const opBack = $('#bvOpBack'); opBack.innerHTML = '';
+  op.back.forEach(h => { if (h) opBack.appendChild(renderSlot(h, false)); });
+  const opCenter = $('#bvOpCenter'); opCenter.innerHTML = '';
+  if (op.collab) opCenter.appendChild(renderSlot(op.collab, false));
+  opCenter.appendChild(renderSlot(op.center, false));
+
+  // My half
+  $('#bvMeInfo').innerHTML = renderInfoBar(me, false);
+  const meBack = $('#bvMeBack'); meBack.innerHTML = '';
+  me.back.forEach(h => { if (h) meBack.appendChild(renderSlot(h, false)); });
+  const meCenter = $('#bvMeCenter'); meCenter.innerHTML = '';
+  meCenter.appendChild(renderSlot(me.center, false));
+  if (me.collab) meCenter.appendChild(renderSlot(me.collab, false));
+
+  // Hand
+  const hand = $('#bvHand'); hand.innerHTML = '';
+  if (Array.isArray(me.hand)) {
+    me.hand.forEach(c => {
+      const img = el('img','hand-card');
+      img.src = c.img || '';
+      img.alt = c.nm;
+      img.title = `${c.nm}（${c.bl || c.t}）`;
+      img.loading = 'lazy';
+      hand.appendChild(img);
+    });
+  }
+
+  // Log
+  const logEl = $('#bvLog');
+  const lines = snap.log.slice(-30);
+  logEl.innerHTML = lines.map(l => `<div class="log-line ${l.cls||''}">${esc(l.t)}</div>`).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function showDecision(decision, driver, meKey) {
+  const acts = $('#bvActions');
+  acts.style.display = '';
+  acts.innerHTML = '';
+  const prompt = el('div','prompt',esc(decision.prompt || '選択してください'));
+  acts.appendChild(prompt);
+  const list = el('div','act-list');
+  acts.appendChild(list);
+
+  const submit = (choice) => {
+    acts.style.display = 'none';
+    document.querySelectorAll('.bv-slot.selectable').forEach(s => s.classList.remove('selectable'));
+    driver.submitChoice(choice);
+  };
+
+  switch (decision.type) {
+    case 'setupCenter': {
+      decision.candidates.forEach(c => {
+        const btn = el('button','act-btn',esc(`${c.nm}（HP${c.hp||0}）`));
+        btn.onclick = () => submit(c.n);
+        list.appendChild(btn);
+      });
+      break;
+    }
+    case 'setupBack': {
+      const selected = [];
+      const updateBtns = () => {
+        const done = el('button','act-btn' + (selected.length ? '' : ' end'),
+          selected.length ? `決定（${selected.length}枚）` : 'スキップ');
+        done.onclick = () => submit(selected);
+        const old = list.querySelector('.done-btn');
+        if (old) old.replaceWith(done); else list.appendChild(done);
+        done.className += ' done-btn';
+      };
+      decision.candidates.forEach(c => {
+        const btn = el('button','act-btn',esc(`${c.nm}（HP${c.hp||0}）`));
+        btn.onclick = () => {
+          const idx = selected.indexOf(c.n);
+          if (idx >= 0) { selected.splice(idx, 1); btn.style.opacity = '1'; }
+          else if (selected.length < 3) { selected.push(c.n); btn.style.opacity = '0.5'; }
+          updateBtns();
+        };
+        list.appendChild(btn);
+      });
+      updateBtns();
+      break;
+    }
+    case 'cheerTarget':
+    case 'lifeCheerTarget': {
+      decision.candidates.forEach(h => {
+        const hp = h.card ? (h.card.hp||0) : (h.hp||0);
+        const nm = h.card ? h.card.nm : h.nm;
+        const btn = el('button','act-btn',esc(`${nm}（HP${hp} / エール${(h.cheer||[]).length}）`));
+        btn.onclick = () => submit(h.id);
+        list.appendChild(btn);
+      });
+      break;
+    }
+    case 'promoteCenter': {
+      decision.candidates.forEach(h => {
+        const nm = h.card ? h.card.nm : h.nm;
+        const btn = el('button','act-btn',esc(nm));
+        btn.onclick = () => submit(h.id);
+        list.appendChild(btn);
+      });
+      break;
+    }
+    case 'mainAction': {
+      decision.actions.forEach(a => {
+        const lbl = a.label || a.act;
+        const btn = el('button','act-btn' + (a.act === 'endMain' ? ' end' : ''), esc(lbl));
+        btn.onclick = () => submit(a);
+        list.appendChild(btn);
+      });
+      break;
+    }
+    case 'artChoice': {
+      decision.arts.forEach(a => {
+        const costStr = a.cost.map(c => c.join ? c.join('') : c).join('');
+        const btn = el('button','act-btn',`アーツ${a.idx+1}（威力${a.power}／コスト${costStr}）`);
+        btn.onclick = () => submit(a.idx);
+        list.appendChild(btn);
+      });
+      break;
+    }
+    case 'supportTarget': {
+      decision.candidates.forEach(h => {
+        const nm = h.card ? h.card.nm : h.nm;
+        const btn = el('button','act-btn',esc(nm));
+        btn.onclick = () => submit(h.id);
+        list.appendChild(btn);
+      });
+      break;
+    }
+  }
+}
+
+function showBattleResult(result, meKey) {
+  const field = $('#bvField');
+  const overlay = el('div','bv-result');
+  const won = result.winner === meKey;
+  overlay.innerHTML = `
+    <h2 class="${won ? 'win-a' : 'win-b'}">${won ? '🎉 勝利！' : '😢 敗北…'}</h2>
+    <div class="detail">${result.turns}ターン・${esc(result.reason || '')}</div>
+    <button class="btn primary" id="bvClose">閉じる</button>`;
+  field.appendChild(overlay);
+  overlay.querySelector('#bvClose').onclick = () => closeBattle();
+}
+
+function closeBattle() {
+  if (_battleDriver) { _battleDriver.stop(); _battleDriver = null; }
+  $('#battleView').classList.remove('open');
+  const res = $('#bvField').querySelector('.bv-result');
+  if (res) res.remove();
+  $('#bvActions').style.display = 'none';
+}
+
+function startInteractiveBattle(deckA, deckB) {
+  const meKey = 'A';
+  const game = HoloEngine.createInteractiveGame(deckA, deckB, ENGINE_DB);
+  const bv = $('#battleView');
+  bv.classList.add('open');
+  $('#bvTurn').textContent = '対戦準備中';
+  $('#bvPhase').textContent = '';
+  $('#bvActions').style.display = 'none';
+  $('#bvLog').innerHTML = '';
+  $('#bvHand').innerHTML = '';
+  $('#bvOpInfo').innerHTML = '';
+  $('#bvOpBack').innerHTML = '';
+  $('#bvOpCenter').innerHTML = '';
+  $('#bvMeInfo').innerHTML = '';
+  $('#bvMeBack').innerHTML = '';
+  $('#bvMeCenter').innerHTML = '';
+  const res = $('#bvField').querySelector('.bv-result');
+  if (res) res.remove();
+
+  const driver = new HoloEngine.BattleDriver(game, meKey, {
+    aiDelay: 500,
+    onState: (snap) => renderBattleState(snap, meKey),
+    onDecision: (d) => showDecision(d, driver, meKey),
+    onEnd: (result) => showBattleResult(result, meKey),
+    onLog: () => {},
+  });
+  _battleDriver = driver;
+  driver.run(60);
+}
+
+$('#bvQuit').onclick = () => closeBattle();
 
 /* ===================== mobile nav ===================== */
 const isMobile=()=>window.innerWidth<=1024;
