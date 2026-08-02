@@ -381,6 +381,22 @@ header{
   .bv-slot .slot-label{max-width:72px;font-size:9px}
   .bv-hand .hand-card{width:60px;height:84px}
 }
+
+.card-popup{display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);max-width:320px;width:90vw;overflow:hidden;pointer-events:none}
+.card-popup.on{display:flex;flex-direction:column}
+.card-popup .cp-img{width:100%;aspect-ratio:63/88;object-fit:cover;background:var(--bg3);display:block}
+.card-popup .cp-body{padding:8px 10px;max-height:260px;overflow-y:auto;scrollbar-width:thin}
+.card-popup .cp-name{font-weight:700;font-size:14px;margin-bottom:2px}
+.card-popup .cp-meta{font-size:11px;color:var(--muted);margin-bottom:4px;display:flex;flex-wrap:wrap;gap:4px}
+.card-popup .cp-meta span{background:var(--bg3);padding:1px 6px;border-radius:4px}
+.card-popup .cp-stats{font-size:12px;margin-bottom:4px;display:flex;gap:8px;flex-wrap:wrap}
+.card-popup .cp-stats .hp{color:var(--ok);font-weight:700}
+.card-popup .cp-stats .dmg{color:var(--err);font-weight:700}
+.card-popup .cp-stats .cheer{color:var(--accent)}
+.card-popup .cp-text{font-size:11px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.card-popup .cp-text .cp-label{color:var(--accent);font-weight:700;font-size:10px;display:block;margin-top:4px}
+.card-popup .cp-attach{margin-top:4px;padding-top:4px;border-top:1px solid var(--line);font-size:11px}
+.card-popup .cp-attach .att-name{color:var(--accent2);font-weight:600}
 </style>
 </head>
 <body>
@@ -467,6 +483,7 @@ header{
   <div class="bv-log" id="bvLog"></div>
 </div>
 
+<div class="card-popup" id="cardPopup"><img class="cp-img" id="cpImg"><div class="cp-body" id="cpBody"></div></div>
 <div class="modal" id="modal"><div class="modalbox" id="modalBox"></div></div>
 <div class="dlg" id="dlg"><div class="dlgbox" id="dlgBox"></div></div>
 <div class="toast" id="toast"></div>
@@ -6951,6 +6968,7 @@ function renderSlot(h, selectable, onClick) {
     ${dmg ? `<span class="dmg-text">-${dmg}</span>` : ''}
     ${h.buffArt ? `<span class="buff-text">+${h.buffArt}</span>` : ''}`;
   if (onClick) d.onclick = () => onClick(h);
+  attachPopupEvents(d, h.n, h);
   return d;
 }
 
@@ -7001,6 +7019,7 @@ function renderBattleState(snap, meKey) {
       img.alt = c.nm;
       img.title = `${c.nm}（${c.bl || c.t}）`;
       img.loading = 'lazy';
+      attachPopupEvents(img, c.n, null);
       hand.appendChild(img);
     });
   }
@@ -7160,6 +7179,108 @@ function startInteractiveBattle(deckA, deckB) {
 }
 
 $('#bvQuit').onclick = () => closeBattle();
+
+/* ===================== card popup (battle view) ===================== */
+const _popup = $('#cardPopup');
+const _popupImg = $('#cpImg');
+const _popupBody = $('#cpBody');
+let _popupTimer = null;
+
+function buildPopupHTML(cardNum, holo) {
+  const c = BYNUM.get(cardNum);
+  if (!c) return '';
+  const tx = c.tx || {};
+  let html = `<div class="cp-name">${esc(c.nm)}</div>`;
+  html += `<div class="cp-meta">`;
+  html += `<span>${c.n}</span>`;
+  if (c.bl) html += `<span>${c.bl}</span>`;
+  if (c.t === 'oshi') html += `<span>推しホロメン</span>`;
+  else if (c.t === 'support') html += `<span>サポート${c.st ? '・'+c.st : ''}</span>`;
+  else if (c.t === 'holomen') html += `<span>ホロメン</span>`;
+  if (c.c && c.c.length) html += `<span>${c.c.join('/')}</span>`;
+  if (c.bt) html += `<span>バトン${c.bt}</span>`;
+  html += `</div>`;
+  if (holo || c.hp) {
+    html += `<div class="cp-stats">`;
+    if (c.hp) html += `<span class="hp">HP ${c.hp}</span>`;
+    if (holo && holo.dmg) html += `<span class="dmg">ダメージ ${holo.dmg}</span>`;
+    if (holo && holo.cheer) html += `<span class="cheer">エール ${holo.cheer.length}枚</span>`;
+    if (c.lf) html += `<span>LIFE ${c.lf}</span>`;
+    html += `</div>`;
+  }
+  let txHtml = '';
+  const addTx = (lab, val) => { if (val) txHtml += `<span class="cp-label">${lab}</span>${esc(val)}\n`; };
+  addTx('推しスキル', tx.o);
+  addTx('SP推しスキル', tx.s);
+  if (tx.k) tx.k.forEach(k => addTx('キーワード', k));
+  if (tx.a) tx.a.forEach(a => addTx('アーツ', a));
+  addTx('能力テキスト', tx.b);
+  if (txHtml) html += `<div class="cp-text">${txHtml}</div>`;
+  if (holo && holo.attachments && holo.attachments.length) {
+    html += `<div class="cp-attach">`;
+    holo.attachments.forEach(att => {
+      const ac = BYNUM.get(att.n);
+      html += `<span class="att-name">📎 ${esc(att.nm || (ac && ac.nm) || att.n)}</span> `;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
+function showCardPopup(cardNum, holo, anchorEl) {
+  const c = BYNUM.get(cardNum);
+  if (!c) return;
+  _popupImg.src = c.img || '';
+  _popupImg.alt = c.nm;
+  _popupImg.style.display = c.img ? '' : 'none';
+  _popupBody.innerHTML = buildPopupHTML(cardNum, holo);
+  _popup.classList.add('on');
+  requestAnimationFrame(() => positionPopup(anchorEl));
+}
+
+function positionPopup(anchor) {
+  const r = anchor.getBoundingClientRect();
+  const pw = _popup.offsetWidth, ph = _popup.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = r.right + 8;
+  if (left + pw > vw) left = r.left - pw - 8;
+  if (left < 4) left = 4;
+  let top = r.top;
+  if (top + ph > vh) top = vh - ph - 4;
+  if (top < 4) top = 4;
+  _popup.style.left = left + 'px';
+  _popup.style.top = top + 'px';
+}
+
+function hideCardPopup() {
+  clearTimeout(_popupTimer);
+  _popupTimer = null;
+  _popup.classList.remove('on');
+}
+
+function attachPopupEvents(el, cardNum, holo) {
+  el.addEventListener('mouseenter', () => {
+    clearTimeout(_popupTimer);
+    _popupTimer = setTimeout(() => showCardPopup(cardNum, holo, el), 350);
+  });
+  el.addEventListener('mouseleave', () => hideCardPopup());
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    clearTimeout(_popupTimer);
+    showCardPopup(cardNum, holo, el);
+    const dismiss = () => { hideCardPopup(); document.removeEventListener('click', dismiss); };
+    setTimeout(() => document.addEventListener('click', dismiss), 50);
+  });
+  el.addEventListener('touchstart', (e) => {
+    _popupTimer = setTimeout(() => {
+      e.preventDefault();
+      showCardPopup(cardNum, holo, el);
+      const dismiss = () => { hideCardPopup(); document.removeEventListener('touchstart', dismiss); };
+      setTimeout(() => document.addEventListener('touchstart', dismiss), 50);
+    }, 400);
+  }, {passive: false});
+  el.addEventListener('touchend', () => { if (_popupTimer) { clearTimeout(_popupTimer); _popupTimer = null; } });
+}
 
 /* ===================== mobile nav ===================== */
 const isMobile=()=>window.innerWidth<=1024;
