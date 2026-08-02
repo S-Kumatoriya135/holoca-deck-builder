@@ -307,7 +307,7 @@ header{
 }
 
 /* =============== interactive battle view =============== */
-#battleView{display:none;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;overflow:hidden}
+#battleView{display:none;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;overflow-y:auto}
 #battleView.open{display:flex}
 .bv-top{display:flex;align-items:center;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--line);gap:8px;flex-shrink:0}
 .bv-top .turn-info{flex:1;font-weight:700;font-size:14px;color:var(--accent)}
@@ -5794,6 +5794,14 @@ header{
     const p = game[decision.player];
     const op = decision.player === 'A' ? game.B : game.A;
     switch (decision.type) {
+      case 'mulligan': {
+        const hand = decision.hand.map((n) => game.DB.byNum[n]).filter(Boolean);
+        const hasDebut = hand.some((c) => c.t === 'holomen' && c.bl === 'Debut');
+        const debutCount = hand.filter((c) => c.t === 'holomen' && c.bl === 'Debut').length;
+        if (!hasDebut) return 'yes';
+        if (debutCount <= 1 && hand.length >= 7) return 'yes';
+        return 'no';
+      }
       case 'setupCenter': return aiPickSetupCenter(decision.candidates, game).n;
       case 'setupBack': return aiPickSetupBack(decision.candidates, game).map((c) => c.n);
       case 'cheerTarget': return aiPickCheerTarget(decision.candidates, decision.cheerColor, game).id;
@@ -5850,9 +5858,21 @@ header{
       if (!debuts.length) { p.lost = true; p.lostReason = 'Debut不在'; continue; }
 
       const who = p === this.A ? 'A' : 'B';
+      // Mulligan: ask player if they want to redraw (once)
+      const mulliganChoice = yield { type: 'mulligan', player: who, hand: p.hand.map((c) => c.n), prompt: '手札を引き直しますか？（1回のみ）' };
+      if (mulliganChoice === 'yes') {
+        p.hand.forEach((c) => p.deck.push(c)); p.hand = [];
+        shuffle(p.deck, rnd);
+        this.draw(p, 7);
+        this.push(p.name, '手札を引き直しました');
+      }
+
+      const debuts2 = p.hand.filter((c) => c.t === 'holomen' && c.bl === 'Debut');
+      if (!debuts2.length) { p.lost = true; p.lostReason = 'Debut不在(引き直し後)'; continue; }
+
       // Choose center
-      const centerChoice = yield { type: 'setupCenter', player: who, candidates: debuts, prompt: 'センターに出すDebutホロメンを選択' };
-      const center = debuts.find((c) => c.n === centerChoice) || debuts[0];
+      const centerChoice = yield { type: 'setupCenter', player: who, candidates: debuts2, prompt: 'センターに出すDebutホロメンを選択' };
+      const center = debuts2.find((c) => c.n === centerChoice) || debuts2[0];
       p.center = makeHolo(center); p.center.playedTurn = 0;
       p.hand.splice(p.hand.indexOf(center), 1);
 
@@ -7113,6 +7133,33 @@ function showDecision(decision, driver, meKey) {
   };
 
   switch (decision.type) {
+    case 'mulligan': {
+      const snap = HoloEngine.snapshot(driver.game);
+      const meSnap = snap[meKey];
+      const handCards = meSnap.hand || [];
+      const handDiv = el('div','mulligan-hand');
+      handDiv.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';
+      handCards.forEach(c => {
+        const img = document.createElement('img');
+        img.src = c.img || '';
+        img.alt = c.nm || c.n;
+        img.style.cssText = 'width:60px;border-radius:4px;border:1px solid #555';
+        const wrap = el('div','');
+        wrap.appendChild(img);
+        const label = el('div','',esc(c.nm||c.n));
+        label.style.cssText = 'font-size:10px;text-align:center;max-width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+        wrap.appendChild(label);
+        handDiv.appendChild(wrap);
+      });
+      list.appendChild(handDiv);
+      const yesBtn = el('button','act-btn end','引き直す');
+      yesBtn.onclick = () => submit('yes');
+      list.appendChild(yesBtn);
+      const noBtn = el('button','act-btn','このまま進める');
+      noBtn.onclick = () => submit('no');
+      list.appendChild(noBtn);
+      break;
+    }
     case 'setupCenter': {
       decision.candidates.forEach(c => {
         const btn = el('button','act-btn',esc(`${c.nm}（HP${c.hp||0}）`));
