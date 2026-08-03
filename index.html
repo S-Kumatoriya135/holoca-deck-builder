@@ -324,11 +324,40 @@ header{
 .bv-half.me{flex:0 0 auto;background:linear-gradient(0deg,rgba(90,209,207,.08),transparent)}
 
 /* left zone: life + cheer deck */
-.bv-zone-left{grid-row:1/3;grid-column:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px}
-.bv-zone-left .zone-stack{position:relative;width:36px;height:50px;border-radius:4px;border:1px solid var(--line);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--muted)}
-.bv-zone-left .zone-stack.life{border-color:rgba(229,72,77,.4);background:linear-gradient(135deg,rgba(229,72,77,.12),var(--bg3))}
-.bv-zone-left .zone-stack.cheer-pile{border-color:rgba(90,209,207,.3);background:linear-gradient(135deg,rgba(90,209,207,.10),var(--bg3))}
+.bv-zone-left{grid-row:1/3;grid-column:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
 .bv-zone-left .zone-label{font-size:8px;color:var(--muted)}
+
+/* card-back pattern for zone stacks */
+.zone-stack-wrap{position:relative;width:40px;height:56px}
+.zone-stack-wrap .zs-card{position:absolute;width:40px;height:56px;border-radius:4px;
+  background:linear-gradient(135deg,#1a1040 0%,#221455 40%,#1a1040 100%);
+  border:1px solid rgba(124,92,255,.35);
+  box-shadow:0 1px 3px rgba(0,0,0,.4);overflow:hidden}
+.zone-stack-wrap .zs-card::before{content:'';position:absolute;inset:3px;border:1px solid rgba(124,92,255,.2);border-radius:2px}
+.zone-stack-wrap .zs-card::after{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 5px,rgba(124,92,255,.07) 5px,rgba(124,92,255,.07) 6px),
+  repeating-linear-gradient(-45deg,transparent,transparent 5px,rgba(124,92,255,.07) 5px,rgba(124,92,255,.07) 6px);
+  mask:radial-gradient(ellipse 70% 70% at 50% 50%,#000 40%,transparent 100%)}
+.zone-stack-wrap .zs-card .zs-diamond{position:absolute;top:50%;left:50%;width:14px;height:14px;transform:translate(-50%,-50%) rotate(45deg);border:1.5px solid rgba(154,124,255,.35);background:rgba(124,92,255,.1)}
+.zone-stack-wrap .zs-c0{z-index:3}
+.zone-stack-wrap .zs-c1{z-index:2;transform:translate(2px,2px)}
+.zone-stack-wrap .zs-c2{z-index:1;transform:translate(4px,4px)}
+.zone-stack-wrap .zs-badge{position:absolute;z-index:5;bottom:-2px;right:-4px;min-width:16px;height:16px;
+  background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+  font-size:9px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1}
+.zone-stack-wrap.life .zs-card{border-color:rgba(229,72,77,.4);background:linear-gradient(135deg,#2a0c18 0%,#1a1040 100%)}
+.zone-stack-wrap.life .zs-card .zs-diamond{border-color:rgba(229,72,77,.35);background:rgba(229,72,77,.12)}
+.zone-stack-wrap.life .zs-badge{border-color:rgba(229,72,77,.5);color:var(--err)}
+.zone-stack-wrap.cheer-pile .zs-card{border-color:rgba(90,209,207,.3);background:linear-gradient(135deg,#0d2228 0%,#1a1040 100%)}
+.zone-stack-wrap.cheer-pile .zs-card .zs-diamond{border-color:rgba(90,209,207,.3);background:rgba(90,209,207,.1)}
+.zone-stack-wrap.cheer-pile .zs-badge{border-color:rgba(90,209,207,.4);color:var(--accent)}
+.zone-stack-wrap.hp-zone .zs-card{border-color:rgba(124,92,255,.4)}
+.zone-stack-wrap.hp-zone .zs-badge{border-color:rgba(124,92,255,.5);color:var(--accent2)}
+.zone-stack-wrap.archive-zone{opacity:.6}
+.zone-stack-wrap.empty .zs-card{background:transparent;border:2px dashed var(--line);box-shadow:none}
+.zone-stack-wrap.empty .zs-card::before,.zone-stack-wrap.empty .zs-card::after{display:none}
+.zone-stack-wrap.empty .zs-card .zs-diamond{display:none}
+.zone-stack-wrap.empty .zs-badge{display:none}
 
 /* center: oshi + collab + center row, back row */
 .bv-zone-center{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -337,11 +366,7 @@ header{
 .bv-pos-tag{font-size:7px;color:var(--muted);text-align:center;margin-top:-2px;letter-spacing:.3px}
 
 /* right zone: holo power + deck + archive */
-.bv-zone-right{grid-row:1/3;grid-column:3;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:48px}
-.bv-zone-right .zone-stack{position:relative;width:36px;height:50px;border-radius:4px;border:1px solid var(--line);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--muted)}
-.bv-zone-right .zone-stack.hp-zone{border-color:rgba(124,92,255,.4);background:linear-gradient(135deg,rgba(124,92,255,.12),var(--bg3))}
-.bv-zone-right .zone-stack.deck-zone{border-color:var(--line)}
-.bv-zone-right .zone-stack.archive-zone{border-color:var(--line);opacity:.6}
+.bv-zone-right{grid-row:1/3;grid-column:3;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
 .bv-zone-right .zone-label{font-size:8px;color:var(--muted)}
 
 /* player name bar */
@@ -377,7 +402,12 @@ header{
 .bv-hand{flex-shrink:0;overflow-x:auto;display:flex;gap:4px;padding:4px 8px;background:var(--bg2);border-top:1px solid var(--line);scrollbar-width:thin;-webkit-overflow-scrolling:touch}
 .bv-hand .hand-card{width:46px;height:64px;border-radius:4px;object-fit:cover;border:2px solid var(--line);cursor:pointer;flex-shrink:0;transition:transform .15s}
 .bv-hand .hand-card:hover{transform:translateY(-4px)}
-.bv-hand .hand-card.selectable{border-color:var(--accent);box-shadow:0 0 6px rgba(90,209,207,.4)}
+.bv-hand .hand-card.selectable{border-color:var(--accent);box-shadow:0 0 6px rgba(90,209,207,.4);animation:pulse 1.2s infinite}
+.bv-hand .hand-card.selected{border-color:var(--ok);box-shadow:0 0 8px rgba(75,191,115,.5)}
+.bv-field-prompt{position:absolute;left:50%;transform:translateX(-50%);z-index:8;background:rgba(14,16,22,.88);
+  border:1px solid var(--accent);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;
+  color:var(--accent);text-align:center;white-space:nowrap;pointer-events:none;
+  animation:pulse 1.2s infinite;bottom:4px}
 
 /* actions */
 .bv-actions{flex-shrink:0;background:var(--bg2);border-top:1px solid var(--line);padding:6px 8px;max-height:180px;overflow-y:auto}
@@ -406,7 +436,10 @@ header{
   .bv-slot .hp-bar{width:62px}
   .bv-slot .slot-label{max-width:68px;font-size:8px}
   .bv-hand .hand-card{width:56px;height:78px}
-  .bv-zone-left .zone-stack,.bv-zone-right .zone-stack{width:42px;height:58px;font-size:10px}
+  .zone-stack-wrap{width:46px;height:64px}
+  .zone-stack-wrap .zs-card{width:46px;height:64px}
+  .zone-stack-wrap .zs-badge{font-size:10px;min-width:18px;height:18px}
+  .zone-stack-wrap .zs-card .zs-diamond{width:18px;height:18px}
 }
 
 .card-popup{display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);max-width:320px;width:90vw;overflow:hidden;pointer-events:none}
@@ -7006,6 +7039,7 @@ $('#btnBattle').onclick=()=>{
 
 /* ===================== interactive battle ===================== */
 let _battleDriver = null;
+let _pendingDecision = null;
 
 function colorDot(col) {
   return `<span class="cdot" style="background:${COLORVAR[col]||'var(--c-none)'}"></span>`;
@@ -7034,19 +7068,31 @@ function renderNameBar(p, isOp) {
     <span class="life-pips">${pipHtml}</span>`;
 }
 
+function renderZoneStack(count, cls) {
+  if (count <= 0) {
+    return `<div class="zone-stack-wrap ${cls} empty"><div class="zs-card zs-c0"></div></div>`;
+  }
+  const n = Math.min(count, 3);
+  let cards = '';
+  for (let i = n - 1; i >= 0; i--) {
+    cards += `<div class="zs-card zs-c${i}"><div class="zs-diamond"></div></div>`;
+  }
+  return `<div class="zone-stack-wrap ${cls}">${cards}<span class="zs-badge">${count}</span></div>`;
+}
+
 function renderZoneLeft(p) {
-  return `<div class="zone-stack life">${p.life}</div>
+  return `${renderZoneStack(p.life, 'life')}
     <div class="zone-label">ライフ</div>
-    <div class="zone-stack cheer-pile">${p.cheerDeckCount}</div>
+    ${renderZoneStack(p.cheerDeckCount, 'cheer-pile')}
     <div class="zone-label">エール</div>`;
 }
 
 function renderZoneRight(p) {
-  return `<div class="zone-stack hp-zone">${p.holoPowerCount}</div>
+  return `${renderZoneStack(p.holoPowerCount, 'hp-zone')}
     <div class="zone-label">ホロパワー</div>
-    <div class="zone-stack deck-zone">${p.deckCount}</div>
+    ${renderZoneStack(p.deckCount, 'deck-zone')}
     <div class="zone-label">デッキ</div>
-    <div class="zone-stack archive-zone">${p.archiveCount}</div>
+    ${renderZoneStack(p.archiveCount, 'archive-zone')}
     <div class="zone-label">アーカイブ</div>`;
 }
 
@@ -7058,10 +7104,11 @@ function renderOshiSlot(oshi) {
   return d;
 }
 
-function renderFrontRow(container, p, isMe) {
+function renderFrontRow(container, p, isMe, selectableIds, onSelect) {
   container.innerHTML = '';
-  const collabSlot = p.collab ? renderSlot(p.collab, false) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">コラボ</div>'; return e; })();
-  const centerSlot = p.center ? renderSlot(p.center, false) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">センター</div>'; return e; })();
+  const isSelectable = (h) => h && selectableIds && selectableIds.has(h.id);
+  const collabSlot = p.collab ? renderSlot(p.collab, isSelectable(p.collab), isSelectable(p.collab) ? onSelect : null) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">コラボ</div>'; return e; })();
+  const centerSlot = p.center ? renderSlot(p.center, isSelectable(p.center), isSelectable(p.center) ? onSelect : null) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">センター</div>'; return e; })();
   const oshiSlot = renderOshiSlot(p.oshi);
   if (isMe) {
     container.appendChild(collabSlot);
@@ -7080,11 +7127,38 @@ function renderBattleState(snap, meKey) {
   $('#bvTurn').textContent = `ターン ${snap.turn || 0}`;
   $('#bvPhase').textContent = snap.phase ? `[${phaseMap[snap.phase] || snap.phase}ステップ]` : '';
 
+  // Determine which field cards are selectable from _pendingDecision
+  let selectableIds = null, onFieldSelect = null;
+  let handSelectMode = null; // 'single' | 'multi'
+  let handCandidateNames = null;
+  const pd = _pendingDecision;
+  if (pd) {
+    const fieldTypes = ['cheerTarget','lifeCheerTarget','promoteCenter','supportTarget'];
+    if (fieldTypes.includes(pd.type)) {
+      selectableIds = new Set(pd.candidates.map(h => h.id));
+      onFieldSelect = (h) => {
+        _pendingDecision = null;
+        const acts = $('#bvActions'); acts.style.display = 'none';
+        document.querySelectorAll('.bv-slot.selectable').forEach(s => s.classList.remove('selectable'));
+        document.querySelectorAll('.bv-field-prompt').forEach(e => e.remove());
+        pd.driver.submitChoice(h.id);
+      };
+    }
+    if (pd.type === 'setupCenter') {
+      handSelectMode = 'single';
+      handCandidateNames = new Set(pd.candidates.map(c => c.n));
+    }
+    if (pd.type === 'setupBack') {
+      handSelectMode = 'multi';
+      handCandidateNames = new Set(pd.candidates.map(c => c.n));
+    }
+  }
+
   // Opponent half
   $('#bvOpInfo').innerHTML = renderNameBar(op, true);
   $('#bvOpLeft').innerHTML = renderZoneLeft(op);
   $('#bvOpRight').innerHTML = renderZoneRight(op);
-  renderFrontRow($('#bvOpFront'), op, false);
+  renderFrontRow($('#bvOpFront'), op, false, null, null);
   const opBack = $('#bvOpBack'); opBack.innerHTML = '';
   op.back.forEach(h => { if (h) opBack.appendChild(renderSlot(h, false)); });
 
@@ -7092,12 +7166,25 @@ function renderBattleState(snap, meKey) {
   $('#bvMeInfo').innerHTML = renderNameBar(me, false);
   $('#bvMeLeft').innerHTML = renderZoneLeft(me);
   $('#bvMeRight').innerHTML = renderZoneRight(me);
-  renderFrontRow($('#bvMeFront'), me, true);
+  renderFrontRow($('#bvMeFront'), me, true, selectableIds, onFieldSelect);
   const meBack = $('#bvMeBack'); meBack.innerHTML = '';
-  me.back.forEach(h => { if (h) meBack.appendChild(renderSlot(h, false)); });
+  me.back.forEach(h => {
+    if (!h) return;
+    const isSel = selectableIds && selectableIds.has(h.id);
+    meBack.appendChild(renderSlot(h, isSel, isSel ? onFieldSelect : null));
+  });
+
+  // Field prompt overlay for field-card selection
+  document.querySelectorAll('.bv-field-prompt').forEach(e => e.remove());
+  if (selectableIds && pd) {
+    const prompt = el('div','bv-field-prompt', pd.prompt || '対象を選択');
+    $('#bvMeFront').parentElement.style.position = 'relative';
+    $('#bvMeFront').parentElement.appendChild(prompt);
+  }
 
   // Hand
   const hand = $('#bvHand'); hand.innerHTML = '';
+  const setupBackSelected = pd && pd.type === 'setupBack' ? (pd._selected || (pd._selected = [])) : null;
   if (Array.isArray(me.hand)) {
     me.hand.forEach(c => {
       const img = el('img','hand-card');
@@ -7105,6 +7192,31 @@ function renderBattleState(snap, meKey) {
       img.alt = c.nm;
       img.title = `${c.nm}（${c.bl || c.t}）`;
       img.loading = 'lazy';
+      const isCandidate = handCandidateNames && handCandidateNames.has(c.n);
+      if (isCandidate) img.classList.add('selectable');
+      if (setupBackSelected && setupBackSelected.includes(c.n)) {
+        img.classList.add('selected');
+        img.classList.remove('selectable');
+      }
+      if (isCandidate && handSelectMode === 'single') {
+        img.onclick = (e) => {
+          e.stopPropagation();
+          _pendingDecision = null;
+          const acts = $('#bvActions'); acts.style.display = 'none';
+          document.querySelectorAll('.hand-card.selectable').forEach(s => s.classList.remove('selectable'));
+          pd.driver.submitChoice(c.n);
+        };
+      } else if (isCandidate && handSelectMode === 'multi') {
+        img.onclick = (e) => {
+          e.stopPropagation();
+          const idx = setupBackSelected.indexOf(c.n);
+          if (idx >= 0) { setupBackSelected.splice(idx, 1); }
+          else if (setupBackSelected.length < 3) { setupBackSelected.push(c.n); }
+          if (pd._updateConfirm) pd._updateConfirm();
+          // Re-render to update visual state
+          renderBattleState(snap, meKey);
+        };
+      }
       attachPopupEvents(img, c.n, null);
       hand.appendChild(img);
     });
@@ -7127,11 +7239,52 @@ function showDecision(decision, driver, meKey) {
   acts.appendChild(list);
 
   const submit = (choice) => {
+    _pendingDecision = null;
     acts.style.display = 'none';
     document.querySelectorAll('.bv-slot.selectable').forEach(s => s.classList.remove('selectable'));
+    document.querySelectorAll('.hand-card.selectable,.hand-card.selected').forEach(s => {
+      s.classList.remove('selectable','selected');
+    });
+    document.querySelectorAll('.bv-field-prompt').forEach(e => e.remove());
     driver.submitChoice(choice);
   };
 
+  // Card-selection types: use direct tap on field/hand cards
+  const fieldSelectTypes = ['cheerTarget','lifeCheerTarget','promoteCenter','supportTarget'];
+  const handSelectTypes = ['setupCenter','setupBack'];
+
+  if (fieldSelectTypes.includes(decision.type)) {
+    // Store pending decision and re-render so cards become selectable
+    _pendingDecision = { type: decision.type, candidates: decision.candidates, driver, prompt: decision.prompt };
+    prompt.textContent = (decision.prompt || '対象を選択') + '（カードをタップ）';
+    const snap = HoloEngine.snapshot(driver.game);
+    renderBattleState(snap, meKey);
+    return;
+  }
+
+  if (handSelectTypes.includes(decision.type)) {
+    _pendingDecision = { type: decision.type, candidates: decision.candidates, driver, prompt: decision.prompt };
+    if (decision.type === 'setupCenter') {
+      prompt.textContent = (decision.prompt || 'センターを選択') + '（手札をタップ）';
+    } else {
+      prompt.textContent = (decision.prompt || 'バックを選択') + '（手札をタップして選択）';
+      const confirmBtn = el('button','act-btn','決定（0枚）');
+      confirmBtn.className += ' done-btn';
+      confirmBtn.onclick = () => submit(_pendingDecision._selected || []);
+      list.appendChild(confirmBtn);
+      // Update confirm button text when selection changes
+      _pendingDecision._updateConfirm = () => {
+        const sel = _pendingDecision._selected || [];
+        confirmBtn.textContent = sel.length ? `決定（${sel.length}枚）` : 'スキップ';
+        confirmBtn.className = 'act-btn done-btn' + (sel.length ? '' : ' end');
+      };
+    }
+    const snap = HoloEngine.snapshot(driver.game);
+    renderBattleState(snap, meKey);
+    return;
+  }
+
+  // Button-based types: mulligan, mainAction, artChoice
   switch (decision.type) {
     case 'mulligan': {
       const snap = HoloEngine.snapshot(driver.game);
@@ -7160,57 +7313,6 @@ function showDecision(decision, driver, meKey) {
       list.appendChild(noBtn);
       break;
     }
-    case 'setupCenter': {
-      decision.candidates.forEach(c => {
-        const btn = el('button','act-btn',esc(`${c.nm}（HP${c.hp||0}）`));
-        btn.onclick = () => submit(c.n);
-        list.appendChild(btn);
-      });
-      break;
-    }
-    case 'setupBack': {
-      const selected = [];
-      const updateBtns = () => {
-        const done = el('button','act-btn' + (selected.length ? '' : ' end'),
-          selected.length ? `決定（${selected.length}枚）` : 'スキップ');
-        done.onclick = () => submit(selected);
-        const old = list.querySelector('.done-btn');
-        if (old) old.replaceWith(done); else list.appendChild(done);
-        done.className += ' done-btn';
-      };
-      decision.candidates.forEach(c => {
-        const btn = el('button','act-btn',esc(`${c.nm}（HP${c.hp||0}）`));
-        btn.onclick = () => {
-          const idx = selected.indexOf(c.n);
-          if (idx >= 0) { selected.splice(idx, 1); btn.style.opacity = '1'; }
-          else if (selected.length < 3) { selected.push(c.n); btn.style.opacity = '0.5'; }
-          updateBtns();
-        };
-        list.appendChild(btn);
-      });
-      updateBtns();
-      break;
-    }
-    case 'cheerTarget':
-    case 'lifeCheerTarget': {
-      decision.candidates.forEach(h => {
-        const hp = h.card ? (h.card.hp||0) : (h.hp||0);
-        const nm = h.card ? h.card.nm : h.nm;
-        const btn = el('button','act-btn',esc(`${nm}（HP${hp} / エール${(h.cheer||[]).length}）`));
-        btn.onclick = () => submit(h.id);
-        list.appendChild(btn);
-      });
-      break;
-    }
-    case 'promoteCenter': {
-      decision.candidates.forEach(h => {
-        const nm = h.card ? h.card.nm : h.nm;
-        const btn = el('button','act-btn',esc(nm));
-        btn.onclick = () => submit(h.id);
-        list.appendChild(btn);
-      });
-      break;
-    }
     case 'mainAction': {
       decision.actions.forEach(a => {
         const lbl = a.label || a.act;
@@ -7225,15 +7327,6 @@ function showDecision(decision, driver, meKey) {
         const costStr = a.cost.map(c => c.join ? c.join('') : c).join('');
         const btn = el('button','act-btn',`アーツ${a.idx+1}（威力${a.power}／コスト${costStr}）`);
         btn.onclick = () => submit(a.idx);
-        list.appendChild(btn);
-      });
-      break;
-    }
-    case 'supportTarget': {
-      decision.candidates.forEach(h => {
-        const nm = h.card ? h.card.nm : h.nm;
-        const btn = el('button','act-btn',esc(nm));
-        btn.onclick = () => submit(h.id);
         list.appendChild(btn);
       });
       break;
