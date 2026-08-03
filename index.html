@@ -5795,7 +5795,7 @@ header{
     const op = decision.player === 'A' ? game.B : game.A;
     switch (decision.type) {
       case 'mulligan': {
-        const hand = decision.hand.map((n) => game.DB.byNum[n]).filter(Boolean);
+        const hand = decision.hand.map((n) => game.DB.get(n)).filter(Boolean);
         const hasDebut = hand.some((c) => c.t === 'holomen' && c.bl === 'Debut');
         const debutCount = hand.filter((c) => c.t === 'holomen' && c.bl === 'Debut').length;
         if (!hasDebut) return 'yes';
