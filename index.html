@@ -484,6 +484,9 @@ header{
   box-shadow:0 10px 26px rgba(0,0,0,.65);opacity:.92;
   transform:translate(-50%,-50%) rotate(-5deg);transform-origin:center}
 .bv-drag-hint{font-size:10px;color:var(--muted);margin-top:4px;text-align:center}
+.room-code{flex:1;font-size:22px;font-weight:800;letter-spacing:4px;text-align:center;
+  background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--accent);
+  user-select:all}
 
 @media(min-width:600px){
   .bv-slot{width:68px}
@@ -18317,8 +18320,10 @@ header{
     }
   }
 
-  /* --- snapshot: serialize visible game state for UI rendering --- */
-  function snapshot(game) {
+  /* --- snapshot: serialize visible game state for UI rendering.
+     `viewer` ('A'|'B') hides the other player's hand contents, which matters when
+     the snapshot is sent over the wire to a human opponent. --- */
+  function snapshot(game, viewer) {
     const snapHolo = (h) => h ? {
       id: h.id, n: h.card.n, nm: h.card.nm, hp: h.card.hp || 0, dmg: h.dmg,
       bl: h.card.bl, cheer: h.cheer.slice(), rested: h.rested,
@@ -18338,7 +18343,7 @@ header{
     });
     return {
       turn: game.turn, phase: game._phase || '',
-      A: snapP(game.A, false), B: snapP(game.B, false),
+      A: snapP(game.A, viewer === 'B'), B: snapP(game.B, viewer === 'A'),
       log: game.log.slice(-50),
     };
   }
@@ -18738,6 +18743,10 @@ header{
   function BattleDriver(game, humanPlayer, callbacks) {
     this.game = game;
     this.humanPlayer = humanPlayer; // 'A', 'B', or null (AI vs AI watch mode)
+    // In an online match the host runs the only engine; the opponent's decisions
+    // are forwarded over the connection instead of being resolved by the AI.
+    this.remotePlayer = callbacks.remotePlayer || null;
+    this.onRemoteDecision = callbacks.onRemoteDecision || function () {};
     this.onState = callbacks.onState || function () {};
     this.onDecision = callbacks.onDecision || function () {};
     this.onEnd = callbacks.onEnd || function () {};
@@ -18768,6 +18777,10 @@ header{
       } else if (this.humanPlayer && d.player === this.humanPlayer) {
         this.onState(snapshot(this.game));
         const choice = await new Promise((resolve) => { this._resolve = resolve; this.onDecision(d); });
+        result = gen.next(choice);
+      } else if (this.remotePlayer && d.player === this.remotePlayer) {
+        this.onState(snapshot(this.game));
+        const choice = await new Promise((resolve) => { this._resolve = resolve; this.onRemoteDecision(d); });
         result = gen.next(choice);
       } else {
         // AI resolves
@@ -19485,7 +19498,19 @@ $('#btnBattle').onclick=()=>{
   const curOpt=curValid?`<option value="cur">▶ 現在のデッキ（${esc(state.name)}）</option>`:'';
   if(!saved.length && !curValid){ openDlg(`<h3>⚔ 対戦シミュレーション</h3><p class="mini-note">対戦するには、デッキを2つ以上用意してください（「保存デッキ」で登録、または現在のデッキを構築）。</p><div class="row"><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>`); return; }
   openDlg(`<h3>⚔ 対戦</h3>
-   <div class="field"><label>モード</label><select id="bMode"><option value="ai">🎮 AI対戦（自分で操作）</option><option value="sim">📊 シミュレーション（自動）</option></select></div>
+   <div class="field"><label>モード</label><select id="bMode"><option value="ai">🎮 AI対戦（自分で操作）</option><option value="online">🌐 オンライン対戦（他のユーザーと）</option><option value="sim">📊 シミュレーション（自動）</option></select></div>
+   <div id="bModeOnline" style="display:none">
+     <p class="mini-note">同じページを開いた相手と1対1で対戦します。どちらかが部屋を作り、合言葉を相手に伝えてください。</p>
+     <div class="field"><label>あなたのデッキ</label><select id="bOn_deck">${curOpt}${optsFrom(saved)}</select></div>
+     <div class="row"><button class="btn primary" id="bHost">🏠 部屋を作る</button></div>
+     <div id="bOnlineRoom" style="display:none" class="field">
+       <label>合言葉（相手に伝えてください）</label>
+       <div class="row"><code id="bRoomCode" class="room-code"></code><button class="btn ghost" id="bCopyCode">コピー</button></div>
+     </div>
+     <div class="field"><label>または合言葉で参加</label><input id="bJoinCode" placeholder="例: ABC234" maxlength="6" autocapitalize="characters"></div>
+     <div class="row"><button class="btn" id="bJoin">🚪 参加する</button><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>
+     <div id="bOnStatus" class="mini-note"></div>
+   </div>
    <div id="bModeAI">
      <p class="mini-note">あなたがプレイヤーAとしてAIと対戦します。すべての選択を自分で行います。</p>
      <div class="field"><label>あなたのデッキ</label><select id="bAI_A">${curOpt}${optsFrom(saved)}</select></div>
@@ -19503,9 +19528,27 @@ $('#btnBattle').onclick=()=>{
   const getDeck=(v)=> v==='cur'?deckObj():getSaved()[Number(v)];
   // mode toggle
   $('#bMode').onchange=()=>{
-    const ai=$('#bMode').value==='ai';
-    $('#bModeAI').style.display=ai?'':'none';
-    $('#bModeSim').style.display=ai?'none':'';
+    const m=$('#bMode').value;
+    $('#bModeAI').style.display=m==='ai'?'':'none';
+    $('#bModeOnline').style.display=m==='online'?'':'none';
+    $('#bModeSim').style.display=m==='sim'?'':'none';
+  };
+  // online match
+  $('#bHost').onclick=()=>{
+    const d=getDeck($('#bOn_deck').value);
+    if(!d){toast('デッキを選択してください');return;}
+    hostOnlineMatch(d);
+  };
+  $('#bCopyCode').onclick=()=>{
+    const code=$('#bRoomCode').textContent;
+    navigator.clipboard?.writeText(code).then(()=>toast('合言葉をコピーしました'),()=>{});
+  };
+  $('#bJoin').onclick=()=>{
+    const d=getDeck($('#bOn_deck').value);
+    if(!d){toast('デッキを選択してください');return;}
+    const code=($('#bJoinCode').value||'').trim().toUpperCase();
+    if(code.length!==6){toast('6文字の合言葉を入力してください');return;}
+    joinOnlineMatch(code,d);
   };
   // 既定でBを別デッキに
   if(saved.length && curValid){ $('#bB').value='0'; $('#bAI_B').value='0'; }
@@ -19543,6 +19586,9 @@ $('#btnBattle').onclick=()=>{
 /* ===================== interactive battle ===================== */
 let _battleDriver = null;
 let _pendingDecision = null;
+// Last rendered snapshot. The online guest has no engine of its own, so decision
+// rendering reads the board from here rather than re-snapshotting a live game.
+let _lastSnap = null;
 
 function colorDot(col) {
   return `<span class="cdot" style="background:${COLORVAR[col]||'var(--c-none)'}"></span>`;
@@ -19628,6 +19674,7 @@ function renderFrontRow(container, p, isMe, selectableIds, onSelect) {
 }
 
 function renderBattleState(snap, meKey) {
+  _lastSnap = snap;
   const me = snap[meKey], op = snap[meKey === 'A' ? 'B' : 'A'];
   const phaseMap = {reset:'リセット',draw:'手札',cheer:'エール',main:'メイン',art:'パフォーマンス'};
   $('#bvTurn').textContent = `ターン ${snap.turn || 0}`;
@@ -19773,8 +19820,7 @@ function showDecision(decision, driver, meKey) {
     // Store pending decision and re-render so cards become selectable
     _pendingDecision = { type: decision.type, candidates: decision.candidates, driver, prompt: decision.prompt };
     prompt.textContent = (decision.prompt || '対象を選択') + '（カードをタップ）';
-    const snap = HoloEngine.snapshot(driver.game);
-    renderBattleState(snap, meKey);
+    if (_lastSnap) renderBattleState(_lastSnap, meKey);
     return;
   }
 
@@ -19795,17 +19841,15 @@ function showDecision(decision, driver, meKey) {
         confirmBtn.className = 'act-btn done-btn' + (sel.length ? '' : ' end');
       };
     }
-    const snap = HoloEngine.snapshot(driver.game);
-    renderBattleState(snap, meKey);
+    if (_lastSnap) renderBattleState(_lastSnap, meKey);
     return;
   }
 
   // Button-based types: mulligan, mainAction, artChoice
   switch (decision.type) {
     case 'mulligan': {
-      const snap = HoloEngine.snapshot(driver.game);
-      const meSnap = snap[meKey];
-      const handCards = meSnap.hand || [];
+      const meSnap = (_lastSnap && _lastSnap[meKey]) || { hand: [] };
+      const handCards = Array.isArray(meSnap.hand) ? meSnap.hand : [];
       const handDiv = el('div','mulligan-hand');
       handDiv.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';
       handCards.forEach(c => {
@@ -19842,7 +19886,7 @@ function showDecision(decision, driver, meKey) {
       if (draggable) {
         _pendingDecision = { type: 'mainAction', actions: decision.actions, driver, prompt: decision.prompt };
         acts.appendChild(el('div','bv-drag-hint','手札やバックのカードを盤面にドラッグしてもアクションできます'));
-        renderBattleState(HoloEngine.snapshot(driver.game), meKey);
+        if (_lastSnap) renderBattleState(_lastSnap, meKey);
       }
       break;
     }
@@ -19928,6 +19972,7 @@ function showBattleResult(result, meKey) {
 
 function closeBattle() {
   if (_battleDriver) { _battleDriver.stop(); _battleDriver = null; }
+  netTeardown();
   $('#battleView').classList.remove('open');
   const res = $('#bvField').querySelector('.bv-result');
   if (res) res.remove();
@@ -20114,28 +20159,25 @@ function handleBattleEvent(d, meKey) {
   }
 }
 
-function startInteractiveBattle(deckA, deckB) {
-  const meKey = 'A';
-  const game = HoloEngine.createInteractiveGame(deckA, deckB, ENGINE_DB);
-  const bv = $('#battleView');
-  bv.classList.add('open');
+function resetBattleView() {
+  $('#battleView').classList.add('open');
   $('#bvTurn').textContent = '対戦準備中';
   $('#bvPhase').textContent = '';
   $('#bvActions').style.display = 'none';
   $('#bvLog').innerHTML = '';
   $('#bvHand').innerHTML = '';
-  $('#bvOpInfo').innerHTML = '';
-  $('#bvOpLeft').innerHTML = '';
-  $('#bvOpFront').innerHTML = '';
-  $('#bvOpBack').innerHTML = '';
-  $('#bvOpRight').innerHTML = '';
-  $('#bvMeInfo').innerHTML = '';
-  $('#bvMeLeft').innerHTML = '';
-  $('#bvMeFront').innerHTML = '';
-  $('#bvMeBack').innerHTML = '';
-  $('#bvMeRight').innerHTML = '';
+  ['bvOpInfo','bvOpLeft','bvOpFront','bvOpBack','bvOpRight',
+   'bvMeInfo','bvMeLeft','bvMeFront','bvMeBack','bvMeRight'].forEach(id => { $('#'+id).innerHTML = ''; });
   const res = $('#bvField').querySelector('.bv-result');
   if (res) res.remove();
+  _pendingDecision = null;
+  _lastSnap = null;
+}
+
+function startInteractiveBattle(deckA, deckB) {
+  const meKey = 'A';
+  const game = HoloEngine.createInteractiveGame(deckA, deckB, ENGINE_DB);
+  resetBattleView();
 
   const driver = new HoloEngine.BattleDriver(game, meKey, {
     aiDelay: 600,
@@ -20146,6 +20188,188 @@ function startInteractiveBattle(deckA, deckB) {
   });
   _battleDriver = driver;
   driver.run(60);
+}
+
+/* ===================== online match (P2P via PeerJS) =====================
+   The host runs the only engine and is authoritative. The guest is a thin
+   client: it renders snapshots the host sends and posts its choices back. */
+const PEERJS_SRC = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+const ROOM_PREFIX = 'holoca-vs-';
+let _net = null; // { peer, conn, role }
+
+function loadPeerJS() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = PEERJS_SRC;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('通信ライブラリの読み込みに失敗しました'));
+    document.head.appendChild(s);
+  });
+}
+
+function newRoomCode() {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no easily-confused characters
+  let s = '';
+  for (let i = 0; i < 6; i++) s += abc[Math.floor(Math.random() * abc.length)];
+  return s;
+}
+
+function netTeardown() {
+  if (!_net) return;
+  try { if (_net.conn) _net.conn.close(); } catch (e) {}
+  try { if (_net.peer) _net.peer.destroy(); } catch (e) {}
+  _net = null;
+}
+
+/* The opponent's deck arrives over the wire, so validate it before handing it to
+   the engine — a malformed payload must not be able to break the host's game. */
+function sanitizeRemoteDeck(d) {
+  if (!d || typeof d !== 'object') return null;
+  const oshi = d.oshi;
+  if (typeof oshi !== 'string' || !BYNUM.has(oshi)) return null;
+  const cleanPile = (pile, maxTotal) => {
+    if (!pile || typeof pile !== 'object') return null;
+    const out = {}; let total = 0;
+    for (const [n, cnt] of Object.entries(pile)) {
+      if (!BYNUM.has(n)) return null;
+      if (!Number.isInteger(cnt) || cnt < 1 || cnt > 50) return null;
+      out[n] = cnt; total += cnt;
+    }
+    if (total < 1 || total > maxTotal) return null;
+    return out;
+  };
+  const main = cleanPile(d.main, 60);
+  const cheer = cleanPile(d.cheer, 30);
+  if (!main || !cheer) return null;
+  const name = typeof d.name === 'string' ? d.name.slice(0, 24) : '対戦相手';
+  return { v: 1, name, oshi, main, cheer };
+}
+
+function onlineStatus(msg) {
+  const s = $('#bOnStatus');
+  if (s) s.textContent = msg;
+}
+
+/* --- host --- */
+async function hostOnlineMatch(myDeck) {
+  netTeardown();
+  onlineStatus('通信を準備しています…');
+  try { await loadPeerJS(); } catch (e) { onlineStatus(e.message); return; }
+  const code = newRoomCode();
+  const peer = new Peer(ROOM_PREFIX + code, { debug: 0 });
+  _net = { peer, conn: null, role: 'host' };
+  peer.on('open', () => {
+    const box = $('#bOnlineRoom');
+    if (box) {
+      box.style.display = '';
+      $('#bRoomCode').textContent = code;
+    }
+    onlineStatus('相手の参加を待っています…');
+  });
+  peer.on('error', (err) => {
+    onlineStatus('接続エラー: ' + (err && err.type ? err.type : err));
+  });
+  peer.on('connection', (conn) => {
+    if (_net && _net.conn) { try { conn.close(); } catch (e) {} return; } // one opponent only
+    _net.conn = conn;
+    conn.on('open', () => onlineStatus('相手が接続しました。デッキを待っています…'));
+    conn.on('data', (m) => {
+      if (!m || typeof m !== 'object') return;
+      if (m.t === 'hello') {
+        const guestDeck = sanitizeRemoteDeck(m.deck);
+        if (!guestDeck) {
+          onlineStatus('相手のデッキが不正です。対戦を中止しました。');
+          try { conn.send({ t: 'reject', reason: 'デッキが不正です' }); } catch (e) {}
+          return;
+        }
+        conn.send({ t: 'start' });
+        closeDlg();
+        startOnlineHostBattle(myDeck, guestDeck, conn);
+      } else if (m.t === 'choice') {
+        if (_battleDriver) _battleDriver.submitChoice(m.v);
+      }
+    });
+    conn.on('close', () => { toast('相手との接続が切れました'); });
+  });
+}
+
+function startOnlineHostBattle(deckA, deckB, conn) {
+  const meKey = 'A', opKey = 'B';
+  const game = HoloEngine.createInteractiveGame(deckA, deckB, ENGINE_DB);
+  resetBattleView();
+  const send = (o) => { try { conn.send(o); } catch (e) {} };
+  const driver = new HoloEngine.BattleDriver(game, meKey, {
+    aiDelay: 500,
+    remotePlayer: opKey,
+    // snapshot per viewer so neither side ever receives the other's hand
+    onState: () => {
+      renderBattleState(HoloEngine.snapshot(game, meKey), meKey);
+      send({ t: 'state', snap: HoloEngine.snapshot(game, opKey) });
+    },
+    onDecision: (d) => showDecision(d, driver, meKey),
+    onRemoteDecision: (d) => {
+      send({ t: 'decision', d });
+      $('#bvActions').style.display = 'none';
+      showEventToast('相手の操作を待っています…', 1500);
+    },
+    onEnd: (r) => { showBattleResult(r, meKey); send({ t: 'end', r }); },
+    onLog: (d) => { handleBattleEvent(d, meKey); send({ t: 'event', d }); },
+  });
+  _battleDriver = driver;
+  driver.run(60);
+}
+
+/* --- guest --- */
+async function joinOnlineMatch(code, myDeck) {
+  netTeardown();
+  onlineStatus('通信を準備しています…');
+  try { await loadPeerJS(); } catch (e) { onlineStatus(e.message); return; }
+  const peer = new Peer({ debug: 0 });
+  _net = { peer, conn: null, role: 'guest' };
+  peer.on('error', (err) => {
+    const type = err && err.type;
+    onlineStatus(type === 'peer-unavailable'
+      ? 'その合言葉の部屋が見つかりません'
+      : '接続エラー: ' + (type || err));
+  });
+  peer.on('open', () => {
+    onlineStatus('部屋に接続しています…');
+    const conn = peer.connect(ROOM_PREFIX + code, { reliable: true });
+    _net.conn = conn;
+    conn.on('open', () => {
+      onlineStatus('接続しました。対戦開始を待っています…');
+      conn.send({ t: 'hello', deck: myDeck });
+    });
+    conn.on('data', (m) => {
+      if (!m || typeof m !== 'object') return;
+      if (m.t === 'reject') { onlineStatus('参加を断られました: ' + (m.reason || '')); return; }
+      if (m.t === 'start') { closeDlg(); startOnlineGuestBattle(conn); }
+    });
+    conn.on('close', () => { toast('相手との接続が切れました'); });
+  });
+}
+
+function startOnlineGuestBattle(conn) {
+  const meKey = 'B';
+  resetBattleView();
+  $('#bvTurn').textContent = 'オンライン対戦';
+  // The guest has no engine; this stands in for the driver where the battle UI
+  // needs one (submitting choices, and stopping on quit).
+  const stub = {
+    game: null,
+    humanPlayer: meKey,
+    submitChoice: (v) => { try { conn.send({ t: 'choice', v }); } catch (e) {} },
+    stop: () => netTeardown(),
+  };
+  _battleDriver = stub;
+  conn.on('data', (m) => {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'state') renderBattleState(m.snap, meKey);
+    else if (m.t === 'event') handleBattleEvent(m.d, meKey);
+    else if (m.t === 'decision') showDecision(m.d, stub, meKey);
+    else if (m.t === 'end') showBattleResult(m.r, meKey);
+  });
 }
 
 $('#bvQuit').onclick = () => closeBattle();

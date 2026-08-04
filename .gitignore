@@ -7,3 +7,7 @@ EFFECT-DSL.md
 test-*.mjs
 build.mjs
 gen-effects.mjs
+
+# local test helper (static server for two-tab online testing)
+serve.cjs
+.claude/

@@ -1058,8 +1058,10 @@
     }
   }
 
-  /* --- snapshot: serialize visible game state for UI rendering --- */
-  function snapshot(game) {
+  /* --- snapshot: serialize visible game state for UI rendering.
+     `viewer` ('A'|'B') hides the other player's hand contents, which matters when
+     the snapshot is sent over the wire to a human opponent. --- */
+  function snapshot(game, viewer) {
     const snapHolo = (h) => h ? {
       id: h.id, n: h.card.n, nm: h.card.nm, hp: h.card.hp || 0, dmg: h.dmg,
       bl: h.card.bl, cheer: h.cheer.slice(), rested: h.rested,
@@ -1079,7 +1081,7 @@
     });
     return {
       turn: game.turn, phase: game._phase || '',
-      A: snapP(game.A, false), B: snapP(game.B, false),
+      A: snapP(game.A, viewer === 'B'), B: snapP(game.B, viewer === 'A'),
       log: game.log.slice(-50),
     };
   }
@@ -1479,6 +1481,10 @@
   function BattleDriver(game, humanPlayer, callbacks) {
     this.game = game;
     this.humanPlayer = humanPlayer; // 'A', 'B', or null (AI vs AI watch mode)
+    // In an online match the host runs the only engine; the opponent's decisions
+    // are forwarded over the connection instead of being resolved by the AI.
+    this.remotePlayer = callbacks.remotePlayer || null;
+    this.onRemoteDecision = callbacks.onRemoteDecision || function () {};
     this.onState = callbacks.onState || function () {};
     this.onDecision = callbacks.onDecision || function () {};
     this.onEnd = callbacks.onEnd || function () {};
@@ -1509,6 +1515,10 @@
       } else if (this.humanPlayer && d.player === this.humanPlayer) {
         this.onState(snapshot(this.game));
         const choice = await new Promise((resolve) => { this._resolve = resolve; this.onDecision(d); });
+        result = gen.next(choice);
+      } else if (this.remotePlayer && d.player === this.remotePlayer) {
+        this.onState(snapshot(this.game));
+        const choice = await new Promise((resolve) => { this._resolve = resolve; this.onRemoteDecision(d); });
         result = gen.next(choice);
       } else {
         // AI resolves
