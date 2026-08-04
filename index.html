@@ -430,6 +430,27 @@ header{
 
 @keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(90,209,207,.3)}50%{box-shadow:0 0 12px rgba(90,209,207,.7)}}
 
+/* battle animations */
+@keyframes bv-attack{0%{transform:translateX(0)}25%{transform:translateX(12px) scale(1.05)}50%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+@keyframes bv-damage{0%{filter:brightness(1)}15%{filter:brightness(2.5) saturate(0)}30%{transform:translateX(-6px)}45%{transform:translateX(6px)}60%{transform:translateX(-3px)}75%{transform:translateX(3px)}100%{filter:brightness(1);transform:translateX(0)}}
+@keyframes bv-bloom{0%{transform:scale(1);filter:brightness(1)}40%{transform:scale(1.15);filter:brightness(1.6) hue-rotate(30deg)}100%{transform:scale(1);filter:brightness(1)}}
+@keyframes bv-collab{0%{transform:translateY(0)}30%{transform:translateY(-10px)}60%{transform:translateY(2px)}100%{transform:translateY(0)}}
+@keyframes bv-down{0%{opacity:1;transform:rotate(0)}60%{opacity:.5;transform:rotate(8deg) scale(.9)}100%{opacity:0;transform:rotate(12deg) scale(.7) translateY(20px)}}
+@keyframes bv-dmg-popup{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-30px) scale(.8)}}
+@keyframes bv-toast-in{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes bv-toast-out{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.7)}}
+.bv-slot.anim-attack .card-thumb{animation:bv-attack .4s ease-out}
+.bv-slot.anim-damage .card-thumb{animation:bv-damage .5s ease-out}
+.bv-slot.anim-bloom .card-thumb{animation:bv-bloom .6s ease-out}
+.bv-slot.anim-collab .card-thumb{animation:bv-collab .4s ease-out}
+.bv-slot.anim-down{animation:bv-down .6s forwards}
+.bv-dmg-popup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:900;color:#ff5555;text-shadow:0 0 8px #ff0000,0 2px 4px rgba(0,0,0,.8);pointer-events:none;z-index:20;animation:bv-dmg-popup 1.2s forwards}
+.bv-event-toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;
+  background:rgba(14,16,22,.9);border:2px solid var(--accent2);border-radius:12px;padding:10px 20px;
+  font-size:14px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;
+  animation:bv-toast-in .3s ease-out forwards;pointer-events:none}
+.bv-event-toast.out{animation:bv-toast-out .3s forwards}
+
 @media(min-width:600px){
   .bv-slot{width:68px}
   .bv-slot .card-thumb{width:66px;height:92px}
@@ -5841,7 +5862,10 @@ header{
       case 'lifeCheerTarget': return aiPickLifeCheerTarget(decision.candidates, game).id;
       case 'promoteCenter': return aiPickPromoteCenter(decision.candidates, game).id;
       case 'mainAction': return aiPickMainAction(decision.actions, p, op, game);
-      case 'artChoice': return aiPickArt(decision.holo, game);
+      case 'artChoice': {
+        const ai = aiPickArt(decision.holo, game);
+        return ai >= 0 ? ai : (decision.arts.length ? decision.arts[decision.arts.length - 1].idx : 'skip');
+      }
       case 'supportTarget': {
         const t = pickTopAttacker(decision.candidates, game.DB);
         return t ? t.id : decision.candidates[0].id;
@@ -6005,6 +6029,7 @@ header{
         p.hand.splice(action.handIdx, 1);
         holo.card = bl; holo.bloomedTurn = this.turn;
         this.push('', `${p.name}: ${bl.nm} に ブルーム(${bl.bl})`);
+        yield { type: 'event', event: 'bloom', player: who, holoId: holo.id, name: bl.nm, level: bl.bl };
         if (this.effectsOn) {
           const prevFx = fxOf(this.DB, prevCard.n);
           if (prevFx && prevFx.keywords) {
@@ -6070,6 +6095,7 @@ header{
           runActions(fx.ability.do, ctx);
           p.archive.push(card);
           this.push('', `${p.name}: 〈${card.nm}〉を使用`);
+          yield { type: 'event', event: 'supportUsed', player: who, name: card.nm };
         }
         break;
       }
@@ -6078,6 +6104,7 @@ header{
         if (!cand) break;
         p.back.splice(p.back.indexOf(cand), 1); p.collab = cand; p.usedCollab = true;
         this.push('', `${p.name}: ${cand.card.nm} をコラボ`);
+        yield { type: 'event', event: 'collab', player: who, holoId: cand.id, name: cand.card.nm };
         if (this.effectsOn) {
           const fx = fxOf(this.DB, cand.card.n);
           if (fx && fx.keywords) {
@@ -6126,25 +6153,24 @@ header{
     const payableArts = entry.arts.map((art, i) => ({ art, idx: i })).filter(({ art }) => canPay(effCost(art, attacker), attacker.cheer));
     if (!payableArts.length) return;
 
-    let artIdx;
-    if (payableArts.length === 1) {
-      artIdx = payableArts[0].idx;
-    } else {
-      const artChoice = yield {
-        type: 'artChoice', player: who, holo: attacker,
-        arts: payableArts.map(({ art, idx }) => ({ idx, power: art.power + (attacker.buffArt || 0), cost: art.cost })),
-        prompt: `${attacker.card.nm} のアーツを選択`
-      };
-      artIdx = artChoice >= 0 ? artChoice : payableArts[payableArts.length - 1].idx;
-    }
+    // Let the player choose an art or skip
+    const artChoice = yield {
+      type: 'artChoice', player: who, holo: attacker,
+      arts: payableArts.map(({ art, idx }) => ({ idx, power: art.power + (attacker.buffArt || 0), cost: art.cost })),
+      prompt: `${attacker.card.nm} のアーツを選択`
+    };
+    if (artChoice === 'skip') return;
+    const artIdx = artChoice >= 0 ? artChoice : payableArts[payableArts.length - 1].idx;
     const art = entry.arts[artIdx];
     if (!art) return;
 
     const attStatic = this.effectsOn ? this.applyAttachmentStatics(attacker) : { artBonus: 0 };
     const dmg = art.power + (attacker.buffArt || 0) + attStatic.artBonus;
+    const targetNm = op.center.card.nm;
     op.center.dmg += dmg;
     const cls = me === this.A ? 'ta' : 'tb';
-    this.push(cls, `T${this.turn} ${me.name}: ${attacker.card.nm} → ${op.center.card.nm} に ${dmg}`);
+    this.push(cls, `T${this.turn} ${me.name}: ${attacker.card.nm} → ${targetNm} に ${dmg}`);
+    yield { type: 'event', event: 'artHit', attacker: attacker.id, target: op.center.id, dmg, attackerName: attacker.card.nm, targetName: targetNm, player: who };
 
     if (this.effectsOn) {
       const fx = fxOf(this.DB, attacker.card.n);
@@ -6258,8 +6284,10 @@ header{
       if (d.type === 'event') {
         this.onLog(d);
         this.onState(snapshot(this.game));
-        if (d.event === 'turnStart' || d.event === 'downed') {
-          await new Promise((r) => setTimeout(r, this.aiDelay));
+        const animEvents = { turnStart: 1, downed: 1.5, artHit: 2.2, bloom: 1.2, collab: 0.8, supportUsed: 0.8 };
+        const mult = animEvents[d.event];
+        if (mult) {
+          await new Promise((r) => setTimeout(r, Math.floor(this.aiDelay * mult)));
         }
         result = gen.next();
       } else if (this.humanPlayer && d.player === this.humanPlayer) {
@@ -7050,6 +7078,7 @@ function renderSlot(h, selectable, onClick) {
   const hp = h.hp || 1, dmg = h.dmg || 0, cur = Math.max(0, hp - dmg), pct = Math.round(cur / hp * 100);
   const cls = pct > 50 ? '' : pct > 20 ? ' warn' : ' crit';
   const d = el('div', 'bv-slot' + (selectable ? ' selectable' : ''));
+  if (h.id != null) d.dataset.holoId = h.id;
   d.innerHTML = `${h.img ? `<img class="card-thumb" src="${h.img}" alt="${esc(h.nm)}" loading="lazy">` : `<div class="card-thumb" style="background:var(--bg3);display:grid;place-items:center;font-size:9px">${esc(h.nm)}</div>`}
     <div class="hp-bar"><div class="hp-fill${cls}" style="width:${pct}%"></div></div>
     <div class="cheer-dots">${(h.cheer||[]).map(colorDot).join('')}</div>
@@ -7324,11 +7353,23 @@ function showDecision(decision, driver, meKey) {
     }
     case 'artChoice': {
       decision.arts.forEach(a => {
-        const costStr = a.cost.map(c => c.join ? c.join('') : c).join('');
-        const btn = el('button','act-btn',`アーツ${a.idx+1}（威力${a.power}／コスト${costStr}）`);
+        let costStr = '';
+        if (a.cost && typeof a.cost === 'object' && !Array.isArray(a.cost)) {
+          const parts = [];
+          if (a.cost.colors) Object.entries(a.cost.colors).forEach(([c, n]) => { for (let i = 0; i < n; i++) parts.push(c); });
+          const specified = parts.length;
+          if (a.cost.total > specified) { for (let i = 0; i < a.cost.total - specified; i++) parts.push('◇'); }
+          costStr = parts.join('') || (a.cost.any ? '◇'.repeat(a.cost.any) : '0');
+        } else if (Array.isArray(a.cost)) {
+          costStr = a.cost.map(c => c.join ? c.join('') : c).join('');
+        }
+        const btn = el('button','act-btn',`⚔ アーツ${a.idx+1}（威力${a.power}／コスト${costStr}）`);
         btn.onclick = () => submit(a.idx);
         list.appendChild(btn);
       });
+      const skipBtn = el('button','act-btn end','パス（攻撃しない）');
+      skipBtn.onclick = () => submit('skip');
+      list.appendChild(skipBtn);
       break;
     }
   }
@@ -7352,6 +7393,64 @@ function closeBattle() {
   const res = $('#bvField').querySelector('.bv-result');
   if (res) res.remove();
   $('#bvActions').style.display = 'none';
+}
+
+/* --- battle animations --- */
+function findSlotByHoloId(id) {
+  const slots = document.querySelectorAll('.bv-slot[data-holo-id]');
+  for (const s of slots) if (s.dataset.holoId === String(id)) return s;
+  return null;
+}
+function animateSlot(id, cls, duration) {
+  const slot = findSlotByHoloId(id);
+  if (!slot) return;
+  slot.classList.add(cls);
+  setTimeout(() => slot.classList.remove(cls), duration || 600);
+}
+function showDmgPopup(id, dmg) {
+  const slot = findSlotByHoloId(id);
+  if (!slot) return;
+  const pop = el('div','bv-dmg-popup', `-${dmg}`);
+  slot.style.position = 'relative';
+  slot.appendChild(pop);
+  setTimeout(() => pop.remove(), 1200);
+}
+function showEventToast(text, duration) {
+  const field = $('#bvField');
+  const toast = el('div','bv-event-toast', text);
+  field.style.position = 'relative';
+  field.appendChild(toast);
+  setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 300); }, duration || 1200);
+}
+function handleBattleEvent(d, meKey) {
+  if (!d || !d.event) return;
+  switch (d.event) {
+    case 'artHit':
+      animateSlot(d.attacker, 'anim-attack', 500);
+      setTimeout(() => {
+        animateSlot(d.target, 'anim-damage', 600);
+        showDmgPopup(d.target, d.dmg);
+      }, 200);
+      showEventToast(`⚔ ${d.attackerName} → ${d.targetName}  ${d.dmg}ダメージ`, 1500);
+      break;
+    case 'bloom':
+      animateSlot(d.holoId, 'anim-bloom', 700);
+      showEventToast(`🌸 ${d.name} にブルーム！`, 1200);
+      break;
+    case 'collab':
+      animateSlot(d.holoId, 'anim-collab', 500);
+      showEventToast(`🤝 ${d.name} コラボ！`, 1000);
+      break;
+    case 'downed':
+      showEventToast(`💥 ${d.msg}`, 1500);
+      break;
+    case 'supportUsed':
+      showEventToast(`📜 ${d.name} 発動！`, 1000);
+      break;
+    case 'turnStart':
+      showEventToast(`ターン ${d.turn}`, 800);
+      break;
+  }
 }
 
 function startInteractiveBattle(deckA, deckB) {
@@ -7378,11 +7477,11 @@ function startInteractiveBattle(deckA, deckB) {
   if (res) res.remove();
 
   const driver = new HoloEngine.BattleDriver(game, meKey, {
-    aiDelay: 500,
+    aiDelay: 600,
     onState: (snap) => renderBattleState(snap, meKey),
     onDecision: (d) => showDecision(d, driver, meKey),
     onEnd: (result) => showBattleResult(result, meKey),
-    onLog: () => {},
+    onLog: (d) => handleBattleEvent(d, meKey),
   });
   _battleDriver = driver;
   driver.run(60);
