@@ -662,6 +662,7 @@
     const tryBloom = (holo) => {
       if (noBloom) return; // Both players cannot bloom on their first turn
       if (!holo || holo.playedTurn === turnNo) return;
+      if (holo.bloomedTurn === turnNo) return; // one bloom per holomen per turn
       const next = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
       if (!next) return;
       const idx = p.hand.findIndex((c) => c.t === 'holomen' && c.nm === holo.card.nm && c.bl === next);
@@ -906,6 +907,7 @@
     if (!noBloom) {
       for (const holo of allH) {
         if (!holo || holo.playedTurn === turnNo) continue;
+        if (holo.bloomedTurn === turnNo) continue; // one bloom per holomen per turn
         const next = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
         if (!next) continue;
         const idx = p.hand.findIndex((c) => c.t === 'holomen' && c.nm === holo.card.nm && c.bl === next);
@@ -1207,6 +1209,11 @@
         if (!holo) break;
         const bl = p.hand[action.handIdx];
         if (!bl) break;
+        // Re-validate: the action list can go stale between being offered and played,
+        // so never trust it to skip a bloom level or bloom twice in one turn.
+        const wantBl = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
+        if (!wantBl || bl.t !== 'holomen' || bl.bl !== wantBl || bl.nm !== holo.card.nm) break;
+        if (holo.playedTurn === this.turn || holo.bloomedTurn === this.turn) break;
         const prevCard = holo.card;
         p.hand.splice(action.handIdx, 1);
         holo.card = bl; holo.bloomedTurn = this.turn;
