@@ -322,6 +322,11 @@ header{
   grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;align-items:center}
 .bv-half.op{flex:0 0 auto;background:linear-gradient(180deg,rgba(154,124,255,.08),transparent)}
 .bv-half.me{flex:0 0 auto;background:linear-gradient(0deg,rgba(90,209,207,.08),transparent)}
+/* opponent sits across the table: rotate their mat 180° so it faces us —
+   their back row sits farthest away and their side zones mirror ours */
+.bv-half.op .bv-zone-center{flex-direction:column-reverse}
+.bv-half.op .bv-zone-left{grid-column:3}
+.bv-half.op .bv-zone-right{grid-column:1}
 
 /* left zone: life + cheer deck */
 .bv-zone-left{grid-row:1/3;grid-column:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
@@ -466,6 +471,20 @@ header{
 .bv-pick-dup{position:absolute;top:1px;right:1px;background:rgba(14,16,22,.92);border:1px solid var(--pick-accent,#ffca28);
   color:var(--pick-accent,#ffca28);border-radius:8px;font-size:9px;font-weight:800;padding:1px 5px;pointer-events:none}
 
+/* --- drag & drop for main-phase actions --- */
+.bv-draggable{cursor:grab}
+.bv-slot.bv-draggable{touch-action:none}
+/* hand strip scrolls horizontally, so only claim the vertical gesture there */
+.bv-hand .hand-card.bv-draggable{touch-action:pan-x}
+.bv-dragging{opacity:.3}
+.bv-drop-ok{outline:2px dashed var(--accent);outline-offset:2px;border-radius:6px}
+.bv-drop-hot{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px;
+  background:rgba(90,209,207,.18);box-shadow:0 0 12px rgba(90,209,207,.5)}
+.bv-drag-ghost{position:fixed;z-index:400;pointer-events:none;width:58px;border-radius:6px;
+  box-shadow:0 10px 26px rgba(0,0,0,.65);opacity:.92;
+  transform:translate(-50%,-50%) rotate(-5deg);transform-origin:center}
+.bv-drag-hint{font-size:10px;color:var(--muted);margin-top:4px;text-align:center}
+
 @media(min-width:600px){
   .bv-slot{width:68px}
   .bv-slot .card-thumb{width:66px;height:92px}
@@ -577,9 +596,9 @@ header{
     <div class="bv-half me" id="bvMeHalf">
       <div class="bv-name-bar" id="bvMeInfo"></div>
       <div class="bv-zone-left" id="bvMeLeft"></div>
-      <div class="bv-zone-center" id="bvMeStage">
+      <div class="bv-zone-center" id="bvMeStage" data-drop="stage">
         <div class="bv-stage-row" id="bvMeFront"></div>
-        <div class="bv-back-row" id="bvMeBack"></div>
+        <div class="bv-back-row" id="bvMeBack" data-drop="back"></div>
       </div>
       <div class="bv-zone-right" id="bvMeRight"></div>
     </div>
@@ -1392,6 +1411,8 @@ function renderFrontRow(container, p, isMe, selectableIds, onSelect) {
   const centerSlot = p.center ? renderSlot(p.center, isSelectable(p.center), isSelectable(p.center) ? onSelect : null) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">センター</div>'; return e; })();
   const oshiSlot = renderOshiSlot(p.oshi);
   if (isMe) {
+    collabSlot.dataset.drop = 'collab';
+    centerSlot.dataset.drop = 'center';
     container.appendChild(collabSlot);
     container.appendChild(centerSlot);
     container.appendChild(oshiSlot);
@@ -1449,10 +1470,17 @@ function renderBattleState(snap, meKey) {
   $('#bvMeRight').innerHTML = renderZoneRight(me);
   renderFrontRow($('#bvMeFront'), me, true, selectableIds, onFieldSelect);
   const meBack = $('#bvMeBack'); meBack.innerHTML = '';
+  // During the main phase a back holomen can be dragged to the collab or center slot
+  const mainActions = (pd && pd.type === 'mainAction') ? pd.actions : null;
   me.back.forEach(h => {
     if (!h) return;
     const isSel = selectableIds && selectableIds.has(h.id);
-    meBack.appendChild(renderSlot(h, isSel, isSel ? onFieldSelect : null));
+    const slot = renderSlot(h, isSel, isSel ? onFieldSelect : null);
+    slot.dataset.drop = 'holo';
+    if (mainActions && mainActions.some(a => (a.act === 'collab' || a.act === 'baton') && a.holoId === h.id)) {
+      dndMakeDraggable(slot, { kind: 'holo', id: h.id }, mainActions);
+    }
+    meBack.appendChild(slot);
   });
 
   // Field prompt overlay for field-card selection
@@ -1467,12 +1495,15 @@ function renderBattleState(snap, meKey) {
   const hand = $('#bvHand'); hand.innerHTML = '';
   const setupBackSelected = pd && pd.type === 'setupBack' ? (pd._selected || (pd._selected = [])) : null;
   if (Array.isArray(me.hand)) {
-    me.hand.forEach(c => {
+    me.hand.forEach((c, handIdx) => {
       const img = el('img','hand-card');
       img.src = c.img || '';
       img.alt = c.nm;
       img.title = `${c.nm}（${c.bl || c.t}）`;
       img.loading = 'lazy';
+      if (mainActions && mainActions.some(a => a.handIdx === handIdx)) {
+        dndMakeDraggable(img, { kind: 'hand', idx: handIdx }, mainActions);
+      }
       const isCandidate = handCandidateNames && handCandidateNames.has(c.n);
       if (isCandidate) img.classList.add('selectable');
       if (setupBackSelected && setupBackSelected.includes(c.n)) {
@@ -1601,6 +1632,14 @@ function showDecision(decision, driver, meKey) {
         btn.onclick = () => submit(a);
         list.appendChild(btn);
       });
+      // Also expose these actions as drag targets on the board; the buttons above
+      // remain the equivalent fallback.
+      const draggable = decision.actions.some(a => a.handIdx != null || a.act === 'collab' || a.act === 'baton');
+      if (draggable) {
+        _pendingDecision = { type: 'mainAction', actions: decision.actions, driver, prompt: decision.prompt };
+        acts.appendChild(el('div','bv-drag-hint','手札やバックのカードを盤面にドラッグしてもアクションできます'));
+        renderBattleState(HoloEngine.snapshot(driver.game), meKey);
+      }
       break;
     }
     case 'artChoice': {
@@ -1689,6 +1728,128 @@ function closeBattle() {
   const res = $('#bvField').querySelector('.bv-result');
   if (res) res.remove();
   $('#bvActions').style.display = 'none';
+}
+
+/* ===================== main-phase drag & drop =====================
+   Pointer-events based (works with mouse and touch alike) so the player can
+   drag a hand card onto a holomen to bloom it, onto the back row to place a
+   Debut, or drag a back holomen onto the collab/center slot. The action
+   buttons stay available as an equivalent fallback. */
+let _drag = null;
+
+/* Which mainAction (if any) a drag payload triggers when dropped on a target.
+   `target` is {kind, holoId} read off the nearest [data-drop] ancestor. */
+function dndActionFor(payload, target, actions) {
+  for (const a of actions) {
+    if (payload.kind === 'hand') {
+      if (a.handIdx !== payload.idx) continue;
+      if (a.act === 'bloom' && target.holoId != null && Number(target.holoId) === a.holoId) return a;
+      if (a.act === 'placeDebut' && (target.kind === 'back' || target.kind === 'stage')) return a;
+      // supports pick their own target later, so the stage as a whole is the zone —
+      // dropping on an inner slot still resolves here by walking up (see dndResolve)
+      if (a.act === 'playSupport' && target.kind === 'stage') return a;
+    } else if (payload.kind === 'holo') {
+      if (a.holoId !== payload.id) continue;
+      if (a.act === 'collab' && target.kind === 'collab') return a;
+      if (a.act === 'baton' && target.kind === 'center') return a;
+    }
+  }
+  return null;
+}
+
+/* Walk outward from the dropped-on element: the innermost zone wins, but a
+   miss falls through to its container (e.g. dropping a Debut on an occupied
+   back slot still counts as dropping it on the back row). */
+function dndResolve(payload, fromEl, actions) {
+  let node = fromEl;
+  while (node && node !== document.body) {
+    if (node.dataset && node.dataset.drop) {
+      const hit = dndActionFor(payload, { kind: node.dataset.drop, holoId: node.dataset.holoId }, actions);
+      if (hit) return { action: hit, el: node };
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function dndZones() { return [...document.querySelectorAll('#bvMeHalf [data-drop]')]; }
+
+function dndBegin(sourceEl, payload, actions, ev) {
+  // a drag cancels any pending long-press card popup
+  clearTimeout(_popupTimer);
+  hideCardPopup();
+  const img = sourceEl.tagName === 'IMG' ? sourceEl : sourceEl.querySelector('img');
+  const ghost = el('img','bv-drag-ghost');
+  ghost.src = img ? img.src : '';
+  document.body.appendChild(ghost);
+  sourceEl.classList.add('bv-dragging');
+  _drag = { payload, actions, ghost, sourceEl, hot: null };
+  dndZones().forEach(z => {
+    if (dndActionFor(payload, { kind: z.dataset.drop, holoId: z.dataset.holoId }, actions)) z.classList.add('bv-drop-ok');
+  });
+  dndMove(ev);
+}
+
+function dndMove(ev) {
+  if (!_drag) return;
+  _drag.ghost.style.left = ev.clientX + 'px';
+  _drag.ghost.style.top = ev.clientY + 'px';
+  const under = document.elementFromPoint(ev.clientX, ev.clientY);
+  const hit = under ? dndResolve(_drag.payload, under, _drag.actions) : null;
+  if (_drag.hot && _drag.hot !== (hit && hit.el)) { _drag.hot.classList.remove('bv-drop-hot'); _drag.hot = null; }
+  if (hit) { hit.el.classList.add('bv-drop-hot'); _drag.hot = hit.el; }
+}
+
+function dndEnd(ev) {
+  if (!_drag) return;
+  const { payload, actions, ghost, sourceEl } = _drag;
+  ghost.remove();
+  sourceEl.classList.remove('bv-dragging');
+  document.querySelectorAll('.bv-drop-ok,.bv-drop-hot').forEach(z => z.classList.remove('bv-drop-ok','bv-drop-hot'));
+  _drag = null;
+  const under = document.elementFromPoint(ev.clientX, ev.clientY);
+  const hit = under ? dndResolve(payload, under, actions) : null;
+  if (hit) dndSubmitMainAction(hit.action);
+}
+
+/* Submit a mainAction chosen by dropping, mirroring what the buttons do. */
+function dndSubmitMainAction(action) {
+  const pd = _pendingDecision;
+  if (!pd || pd.type !== 'mainAction') return;
+  _pendingDecision = null;
+  $('#bvActions').style.display = 'none';
+  pd.driver.submitChoice(action);
+}
+
+/* Arm an element as a drag source. Only starts once the pointer clears a small
+   threshold, so taps and long-press still behave normally. */
+function dndMakeDraggable(elm, payload, actions) {
+  elm.classList.add('bv-draggable');
+  elm.addEventListener('pointerdown', (e) => {
+    if (e.button != null && e.button !== 0) return;
+    if (!_pendingDecision || _pendingDecision.type !== 'mainAction') return;
+    const x0 = e.clientX, y0 = e.clientY;
+    let started = false;
+    const onMove = (ev) => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
+        started = true;
+        dndBegin(elm, payload, actions, ev);
+      } else {
+        ev.preventDefault();
+        dndMove(ev);
+      }
+    };
+    const onUp = (ev) => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      if (started) dndEnd(ev);
+    };
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
 }
 
 /* --- battle animations --- */
