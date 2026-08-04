@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ホロカ デッキ構築シミュレーター</title>
+<style>
+:root{
+  --bg:#0e1016; --bg2:#161a24; --bg3:#1e2431; --panel:#171b26; --line:#2a3344;
+  --text:#e7ecf3; --muted:#8b96a9; --accent:#5ad1cf; --accent2:#7c5cff;
+  --ok:#4bbf73; --warn:#e6b800; --err:#e5484d;
+  --c-white:#d7dce6; --c-green:#4bbf73; --c-red:#e5484d; --c-blue:#4c8dff;
+  --c-purple:#a668e8; --c-yellow:#e6b800; --c-none:#8a94a6;
+  --radius:12px; --shadow:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:radial-gradient(1200px 600px at 80% -10%,#1a2030 0,var(--bg) 55%) fixed,var(--bg);
+  color:var(--text); font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,system-ui,sans-serif;
+  font-size:14px; line-height:1.5;
+}
+button{font-family:inherit;cursor:pointer}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2c3546;border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---- header ---- */
+header{
+  display:flex;align-items:center;gap:14px;padding:12px 18px;
+  background:linear-gradient(180deg,rgba(124,92,255,.10),transparent),var(--bg2);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;flex-wrap:wrap;
+}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px}
+.logo .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:grid;place-items:center;color:#0c0e14;font-weight:900}
+.logo small{display:block;font-weight:500;color:var(--muted);font-size:11px;letter-spacing:.5px}
+.deckname{background:var(--bg3);border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:7px 12px;min-width:180px;font-size:14px}
+.deckname:focus{outline:none;border-color:var(--accent)}
+.spacer{flex:1}
+.btn{background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:8px;
+  padding:8px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{border-color:var(--accent);background:#232a39}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#0c0e14;font-weight:700}
+.btn.ghost{background:transparent}
+.badge{padding:6px 12px;border-radius:999px;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.badge.ok{background:rgba(75,191,115,.16);color:var(--ok);border:1px solid rgba(75,191,115,.4)}
+.badge.bad{background:rgba(229,72,77,.14);color:var(--err);border:1px solid rgba(229,72,77,.4)}
+
+/* ---- layout ---- */
+.wrap{display:grid;grid-template-columns:1fr 420px;gap:0;height:calc(100vh - 59px)}
+@media(max-width:1100px){.wrap{grid-template-columns:1fr}}
+.pool{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+.deck{display:flex;flex-direction:column;min-width:0;background:var(--panel)}
+
+/* ---- filters ---- */
+.filters{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg2);display:flex;flex-direction:column;gap:10px}
+.searchrow{display:flex;gap:8px}
+.search{flex:1;background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px}
+.search:focus{outline:none;border-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg3);color:var(--muted);font-size:12px;transition:.12s}
+.chip:hover{color:var(--text)}
+.chip.on{color:#0c0e14;font-weight:700}
+.chip.cat.on{background:var(--accent);border-color:var(--accent)}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;vertical-align:-1px;margin-right:5px;border:1px solid rgba(255,255,255,.25)}
+.chip.color.on{color:#fff;border-width:2px}
+.sel{background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px}
+.filtermeta{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+
+/* ---- card grid ---- */
+.grid{flex:1;overflow-y:auto;padding:14px 16px;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;align-content:start}
+.card{position:relative;border-radius:9px;overflow:hidden;background:var(--bg3);cursor:pointer;
+  border:1px solid var(--line);transition:transform .1s,box-shadow .1s;aspect-ratio:63/88}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--accent)}
+.card img{width:100%;height:100%;object-fit:cover;display:block;background:#0b0d13}
+.card .noimg{position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:6px;font-size:11px;color:var(--muted)}
+.card .cnum{position:absolute;top:0;left:0;background:rgba(0,0,0,.7);color:#cfd6e2;font-size:9px;padding:2px 5px;border-bottom-right-radius:6px}
+.card .incount{position:absolute;bottom:6px;right:6px;background:var(--accent);color:#0c0e14;font-weight:800;
+  min-width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.card .lvl{position:absolute;top:0;right:0;font-size:9px;padding:2px 5px;border-bottom-left-radius:6px;font-weight:700}
+.moreBtn{grid-column:1/-1;justify-self:center;margin:8px 0 20px}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px}
+
+/* ---- deck panel ---- */
+.deckhead{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg2)}
+.counts{display:flex;gap:8px;margin-top:4px}
+.countbox{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:center}
+.countbox .k{font-size:11px;color:var(--muted)}
+.countbox .v{font-weight:800;font-size:18px}
+.countbox .v small{font-size:12px;color:var(--muted);font-weight:500}
+.countbox.bad{border-color:var(--err)}.countbox.bad .v{color:var(--err)}
+.countbox.good{border-color:rgba(75,191,115,.5)}.countbox.good .v{color:var(--ok)}
+.decktabs{display:flex;border-bottom:1px solid var(--line);background:var(--bg2)}
+.decktab{flex:1;padding:10px;text-align:center;color:var(--muted);border-bottom:2px solid transparent;font-size:13px;font-weight:600}
+.decktab.on{color:var(--text);border-bottom-color:var(--accent)}
+.deckbody{flex:1;overflow-y:auto;padding:12px 14px}
+.section-t{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:6px 2px 8px;font-weight:700}
+
+/* oshi slot */
+.oshislot{display:flex;gap:12px;align-items:center;background:var(--bg3);border:1px dashed var(--line);border-radius:10px;padding:10px}
+.oshislot.filled{border-style:solid}
+.oshislot img{width:58px;border-radius:6px}
+.oshi-empty{color:var(--muted);font-size:13px}
+
+/* deck list rows */
+.drow{display:flex;align-items:center;gap:10px;padding:6px;border-radius:8px}
+.drow:hover{background:var(--bg3)}
+.drow img{width:38px;height:53px;object-fit:cover;border-radius:4px;background:#0b0d13;cursor:pointer;flex:none}
+.drow .meta{flex:1;min-width:0}
+.drow .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drow .sub{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.stepper{display:flex;align-items:center;gap:2px;flex:none}
+.stepper button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--bg3);color:var(--text);font-size:15px;font-weight:700;display:grid;place-items:center}
+.stepper button:hover{border-color:var(--accent)}
+.stepper .qty{min-width:24px;text-align:center;font-weight:800}
+.grouplabel{font-size:11px;color:var(--muted);margin:12px 2px 4px;font-weight:700;display:flex;justify-content:space-between}
+
+/* stats */
+.stats{padding:4px 2px}
+.statblock{margin-bottom:16px}
+.statblock h4{margin:0 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.bar{height:14px;border-radius:6px;background:var(--bg3);overflow:hidden;display:flex}
+.bar span{height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;font-size:12px}
+.legend .li{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.donutwrap{display:flex;align-items:center;gap:16px}
+.donut{width:120px;height:120px;border-radius:50%;flex:none;position:relative}
+.donut::after{content:"";position:absolute;inset:26px;border-radius:50%;background:var(--panel)}
+.donut .cx{position:absolute;inset:0;display:grid;place-content:center;text-align:center;z-index:1}
+.donut .cx b{font-size:20px}.donut .cx small{color:var(--muted);font-size:10px}
+.hbars{display:flex;flex-direction:column;gap:7px}
+.hbar{display:grid;grid-template-columns:64px 1fr 34px;align-items:center;gap:8px;font-size:12px}
+.hbar .track{height:12px;background:var(--bg3);border-radius:6px;overflow:hidden}
+.hbar .fill{height:100%;border-radius:6px}
+.hbar .n{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* validation list */
+.vlist{margin:8px 0 4px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.vlist li{font-size:12px;padding:7px 10px;border-radius:7px;display:flex;gap:8px;align-items:flex-start}
+.vlist li.e{background:rgba(229,72,77,.12);color:#ffb4b6}
+.vlist li.w{background:rgba(230,184,0,.12);color:#f2d98a}
+.vlist li.ok{background:rgba(75,191,115,.12);color:#9be0b4}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(4,6,10,.72);display:none;z-index:50;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.modal.on{display:flex}
+.modalbox{background:var(--bg2);border:1px solid var(--line);border-radius:16px;max-width:820px;width:100%;max-height:90vh;overflow:auto;box-shadow:var(--shadow)}
+.mgrid{display:grid;grid-template-columns:280px 1fr;gap:0}
+@media(max-width:640px){.mgrid{grid-template-columns:1fr}}
+.mgrid .mimg{padding:20px;display:grid;place-items:start center;background:var(--bg)}
+.mgrid .mimg img{width:100%;max-width:260px;border-radius:10px}
+.mbody{padding:22px 24px}
+.mbody h3{margin:0 0 4px;font-size:20px}
+.mbody .mnum{color:var(--muted);font-size:13px;margin-bottom:14px}
+.kv{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:14px}
+.kv .t{background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:3px 9px;font-size:12px}
+.txtblock{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+.txtblock .lab{font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.txtblock p{margin:0 0 10px;white-space:pre-wrap;font-size:13px;line-height:1.6}
+.mclose{position:sticky;top:10px;float:right;margin:10px;background:var(--bg3);border:1px solid var(--line);color:var(--text);width:34px;height:34px;border-radius:8px;font-size:18px;z-index:2}
+.madd{display:flex;gap:8px;margin-top:16px}
+
+/* toast + dialog */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--bg3);border:1px solid var(--accent);color:var(--text);padding:11px 18px;border-radius:10px;
+  box-shadow:var(--shadow);z-index:60;transition:.25s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.dlg{position:fixed;inset:0;background:rgba(4,6,10,.72);display:none;z-index:55;align-items:center;justify-content:center;padding:20px}
+.dlg.on{display:flex}
+.dlgbox{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:560px;width:100%;box-shadow:var(--shadow)}
+.dlgbox h3{margin:0 0 10px}
+.dlgbox textarea{width:100%;height:120px;background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12px;resize:vertical}
+.dlgbox .row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.savedlist{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:300px;overflow:auto}
+.savedrow{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.savedrow .nm{flex:1;font-weight:600}
+.savedrow small{color:var(--muted)}
+
+/* auto-build + battle */
+.dlgbox.wide{max-width:720px}
+.field{margin:12px 0}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.field input,.field select{width:100%;background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 11px;font-size:14px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+.colorprev{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)}
+.recipe-preview{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12px;color:var(--muted);max-height:160px;overflow:auto}
+.recipe-preview b{color:var(--text)}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:stretch;margin:10px 0}
+.vscard{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:12px}
+.vscard.a{border-color:rgba(90,209,207,.5)}.vscard.b{border-color:rgba(124,92,255,.5)}
+.vscard h4{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:6px}
+.vscard .oshi{font-size:12px;color:var(--muted)}
+.vscard .stat{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px;border-top:1px solid var(--line);padding-top:6px}
+.vsmid{display:grid;place-items:center;font-weight:800;color:var(--muted);font-size:20px}
+.winbar{height:34px;border-radius:8px;overflow:hidden;display:flex;margin:14px 0 6px;border:1px solid var(--line)}
+.winbar .wa{background:linear-gradient(90deg,#3fb6b4,#5ad1cf);display:grid;place-items:center;color:#04120f;font-weight:800;font-size:13px;min-width:40px}
+.winbar .wb{background:linear-gradient(90deg,#7c5cff,#9a7cff);display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;min-width:40px}
+.simmeta{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:6px}
+.battlelog{background:#0b0d13;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:10px;font-family:ui-monospace,monospace;font-size:11.5px;line-height:1.7;max-height:220px;overflow:auto;white-space:pre-wrap}
+.battlelog .ta{color:#7fe3e1}.battlelog .tb{color:#b9a6ff}.battlelog .dmg{color:#f2d98a}.battlelog .ko{color:#ff9ba0;font-weight:700}
+.mini-note{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+
+/* ---- mobile bottom nav ---- */
+.bottomnav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;
+  background:var(--bg2);border-top:1px solid var(--line);
+  padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));
+  justify-content:center;gap:4px}
+.bottomnav button{flex:1;max-width:180px;background:none;border:none;color:var(--muted);font-size:11px;
+  padding:7px 4px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:600}
+.bottomnav button.on{color:var(--accent)}
+.bottomnav button .ico{font-size:18px}
+
+/* ---- mobile responsive ---- */
+@media(max-width:1024px){
+  body{padding-bottom:calc(52px + env(safe-area-inset-bottom,0px));-webkit-text-size-adjust:100%}
+  .bottomnav{display:flex}
+
+  /* header compact */
+  header{padding:8px 12px;gap:8px}
+  .logo{font-size:13px;gap:8px}
+  .logo .mark{width:26px;height:26px;font-size:12px}
+  .logo small{font-size:10px}
+  .deckname{min-width:0;flex:1;padding:6px 10px;font-size:13px}
+  .spacer{display:none}
+  .badge{padding:4px 10px;font-size:11px}
+  .btn{padding:6px 10px;font-size:12px}
+  #btnShare,#btnExport{display:none}
+
+  /* layout: pool/deck toggle via class */
+  .wrap{height:calc(100vh - 52px - 52px - env(safe-area-inset-bottom,0px));grid-template-columns:1fr}
+  .wrap .deck{display:none}
+  .wrap.show-deck .pool{display:none}
+  .wrap.show-deck .deck{display:flex}
+  .pool{border-right:none}
+
+  /* filters compact */
+  .filters{padding:8px 10px;gap:6px}
+  .searchrow{gap:4px}
+  .search{padding:8px 10px;font-size:13px}
+  .sel{padding:6px 8px;font-size:11px}
+  .chip{padding:6px 10px;font-size:11px;-webkit-tap-highlight-color:transparent}
+  .dot{width:10px;height:10px}
+
+  /* card grid: 3 columns */
+  .grid{padding:8px;gap:8px;grid-template-columns:repeat(3,1fr)}
+
+  /* deck panel */
+  .deckhead{padding:8px 12px}
+  .countbox{padding:6px 8px}
+  .countbox .v{font-size:16px}
+  .deckbody{padding:8px 10px}
+  .drow{padding:6px 4px}
+  .drow img{width:34px;height:47px}
+  .drow .nm{font-size:12px}
+  .stepper button{width:32px;height:32px;font-size:17px}
+  .stepper .qty{min-width:28px;font-size:14px}
+
+  /* modal full-screen on mobile */
+  .modal{padding:0;align-items:stretch}
+  .modalbox{max-width:100%;max-height:100vh;border-radius:0}
+  .mgrid{grid-template-columns:1fr}
+  .mgrid .mimg{padding:12px;display:flex;justify-content:center}
+  .mgrid .mimg img{max-width:180px}
+  .mbody{padding:14px 16px}
+  .mbody h3{font-size:17px}
+  .madd{flex-wrap:wrap}
+  .madd .btn{flex:1;min-width:120px;justify-content:center;padding:10px 12px}
+
+  /* dialog */
+  .dlg{padding:10px}
+  .dlgbox{padding:14px;max-width:100%;border-radius:12px}
+  .dlgbox.wide{max-width:100%}
+  .dlgbox h3{font-size:16px}
+  .dlgbox textarea{font-size:13px;height:100px}
+  .dlgbox .row{flex-wrap:wrap}
+  .dlgbox .row .btn{flex:1;min-width:100px;justify-content:center;padding:9px 10px}
+  .field select,.field input{font-size:16px;padding:10px 12px}
+
+  /* battle vs cards stack */
+  .vs{grid-template-columns:1fr;gap:8px}
+  .vsmid{padding:2px 0;font-size:16px}
+  .winbar{height:30px;font-size:12px}
+  .battlelog{font-size:10.5px;max-height:180px}
+
+  /* saved list */
+  .savedrow{flex-wrap:wrap;gap:6px;padding:10px}
+  .savedrow .nm{min-width:100%;font-size:13px}
+  .savedrow .btn{flex:1;justify-content:center;padding:8px}
+
+  /* toast */
+  .toast{bottom:calc(60px + env(safe-area-inset-bottom,0px));font-size:13px}
+
+  /* recipe preview */
+  .recipe-preview{font-size:11px}
+  .colorprev{flex-wrap:wrap}
+}
+
+/* ---- tablet grid (wider cards) ---- */
+@media(min-width:600px) and (max-width:1024px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;padding:12px}
+  #btnShare,#btnExport{display:inline-flex}
+}
+
+/* =============== interactive battle view =============== */
+#battleView{display:none;position:fixed;inset:0;z-index:200;background:var(--bg);flex-direction:column;overflow-y:auto}
+#battleView.open{display:flex}
+.bv-top{display:flex;align-items:center;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--line);gap:8px;flex-shrink:0}
+.bv-top .turn-info{flex:1;font-weight:700;font-size:14px;color:var(--accent)}
+.bv-top .phase-info{font-size:11px;color:var(--muted)}
+.bv-quit{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:12px}
+
+.bv-field{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.bv-divider{height:2px;background:linear-gradient(90deg,transparent,var(--accent) 30%,var(--accent) 70%,transparent);margin:0;opacity:.3}
+
+/* --- play mat half --- */
+.bv-half{position:relative;display:grid;gap:4px;padding:6px 4px;
+  grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;align-items:center}
+.bv-half.op{flex:0 0 auto;background:linear-gradient(180deg,rgba(154,124,255,.08),transparent)}
+.bv-half.me{flex:0 0 auto;background:linear-gradient(0deg,rgba(90,209,207,.08),transparent)}
+
+/* left zone: life + cheer deck */
+.bv-zone-left{grid-row:1/3;grid-column:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
+.bv-zone-left .zone-label{font-size:8px;color:var(--muted)}
+
+/* card-back pattern for zone stacks */
+.zone-stack-wrap{position:relative;width:40px;height:56px}
+.zone-stack-wrap .zs-card{position:absolute;width:40px;height:56px;border-radius:4px;
+  background:linear-gradient(135deg,#1a1040 0%,#221455 40%,#1a1040 100%);
+  border:1px solid rgba(124,92,255,.35);
+  box-shadow:0 1px 3px rgba(0,0,0,.4);overflow:hidden}
+.zone-stack-wrap .zs-card::before{content:'';position:absolute;inset:3px;border:1px solid rgba(124,92,255,.2);border-radius:2px}
+.zone-stack-wrap .zs-card::after{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 5px,rgba(124,92,255,.07) 5px,rgba(124,92,255,.07) 6px),
+  repeating-linear-gradient(-45deg,transparent,transparent 5px,rgba(124,92,255,.07) 5px,rgba(124,92,255,.07) 6px);
+  mask:radial-gradient(ellipse 70% 70% at 50% 50%,#000 40%,transparent 100%)}
+.zone-stack-wrap .zs-card .zs-diamond{position:absolute;top:50%;left:50%;width:14px;height:14px;transform:translate(-50%,-50%) rotate(45deg);border:1.5px solid rgba(154,124,255,.35);background:rgba(124,92,255,.1)}
+.zone-stack-wrap .zs-c0{z-index:3}
+.zone-stack-wrap .zs-c1{z-index:2;transform:translate(2px,2px)}
+.zone-stack-wrap .zs-c2{z-index:1;transform:translate(4px,4px)}
+.zone-stack-wrap .zs-badge{position:absolute;z-index:5;bottom:-2px;right:-4px;min-width:16px;height:16px;
+  background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+  font-size:9px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1}
+.zone-stack-wrap.life .zs-card{border-color:rgba(229,72,77,.4);background:linear-gradient(135deg,#2a0c18 0%,#1a1040 100%)}
+.zone-stack-wrap.life .zs-card .zs-diamond{border-color:rgba(229,72,77,.35);background:rgba(229,72,77,.12)}
+.zone-stack-wrap.life .zs-badge{border-color:rgba(229,72,77,.5);color:var(--err)}
+.zone-stack-wrap.cheer-pile .zs-card{border-color:rgba(90,209,207,.3);background:linear-gradient(135deg,#0d2228 0%,#1a1040 100%)}
+.zone-stack-wrap.cheer-pile .zs-card .zs-diamond{border-color:rgba(90,209,207,.3);background:rgba(90,209,207,.1)}
+.zone-stack-wrap.cheer-pile .zs-badge{border-color:rgba(90,209,207,.4);color:var(--accent)}
+.zone-stack-wrap.hp-zone .zs-card{border-color:rgba(124,92,255,.4)}
+.zone-stack-wrap.hp-zone .zs-badge{border-color:rgba(124,92,255,.5);color:var(--accent2)}
+.zone-stack-wrap.archive-zone{opacity:.6}
+.zone-stack-wrap.empty .zs-card{background:transparent;border:2px dashed var(--line);box-shadow:none}
+.zone-stack-wrap.empty .zs-card::before,.zone-stack-wrap.empty .zs-card::after{display:none}
+.zone-stack-wrap.empty .zs-card .zs-diamond{display:none}
+.zone-stack-wrap.empty .zs-badge{display:none}
+
+/* center: oshi + collab + center row, back row */
+.bv-zone-center{grid-row:1/3;grid-column:2;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bv-stage-row{display:flex;gap:6px;justify-content:center;align-items:flex-end}
+.bv-back-row{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.bv-pos-tag{font-size:7px;color:var(--muted);text-align:center;margin-top:-2px;letter-spacing:.3px}
+
+/* right zone: holo power + deck + archive */
+.bv-zone-right{grid-row:1/3;grid-column:3;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px}
+.bv-zone-right .zone-label{font-size:8px;color:var(--muted)}
+
+/* player name bar */
+.bv-name-bar{grid-column:1/4;display:flex;align-items:center;gap:6px;padding:0 4px;font-size:11px;color:var(--muted)}
+.bv-half.op .bv-name-bar{grid-row:1;padding-bottom:2px}
+.bv-half.me .bv-name-bar{grid-row:1;padding-bottom:2px}
+.bv-name-bar .name{font-weight:700;color:var(--text);font-size:12px}
+.bv-name-bar .life-pips{display:flex;gap:2px}
+.bv-name-bar .pip{width:9px;height:9px;border-radius:50%;background:var(--err);border:1px solid rgba(255,255,255,.15)}
+.bv-name-bar .pip.lost{background:var(--bg3);opacity:.3}
+
+/* slots */
+.bv-slot{width:52px;display:flex;flex-direction:column;align-items:center;position:relative;cursor:pointer;transition:transform .15s}
+.bv-slot:hover{transform:scale(1.08)}
+.bv-slot.selectable{animation:pulse 1.2s infinite}
+.bv-slot.selected{outline:2px solid var(--accent);border-radius:6px}
+.bv-slot .card-thumb{width:50px;height:70px;border-radius:4px;object-fit:cover;border:2px solid var(--line);display:block}
+.bv-slot.selectable .card-thumb{border-color:var(--accent);box-shadow:0 0 8px rgba(90,209,207,.5)}
+.bv-slot .hp-bar{width:46px;height:3px;background:var(--bg3);border-radius:2px;margin-top:1px;overflow:hidden}
+.bv-slot .hp-fill{height:100%;background:var(--ok);transition:width .3s}
+.bv-slot .hp-fill.warn{background:var(--warn)}
+.bv-slot .hp-fill.crit{background:var(--err)}
+.bv-slot .slot-label{font-size:7px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px}
+.bv-slot .cheer-dots{display:flex;gap:1px;justify-content:center;flex-wrap:wrap;max-width:52px}
+.bv-slot .cdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.bv-slot-empty{width:50px;height:70px;border-radius:4px;border:2px dashed var(--line);opacity:.25;display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--muted)}
+.bv-slot .dmg-text{position:absolute;top:1px;right:1px;background:rgba(0,0,0,.75);color:var(--err);font-size:8px;font-weight:700;padding:1px 3px;border-radius:3px}
+.bv-slot .buff-text{position:absolute;top:1px;left:1px;background:rgba(0,0,0,.75);color:var(--accent);font-size:8px;font-weight:700;padding:1px 3px;border-radius:3px}
+.bv-slot.oshi-slot .card-thumb{border-color:rgba(124,92,255,.5);border-radius:6px}
+.bv-slot.rested .card-thumb{opacity:.55;filter:saturate(.5)}
+
+/* hand */
+.bv-hand{flex-shrink:0;overflow-x:auto;display:flex;gap:4px;padding:4px 8px;background:var(--bg2);border-top:1px solid var(--line);scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.bv-hand .hand-card{width:46px;height:64px;border-radius:4px;object-fit:cover;border:2px solid var(--line);cursor:pointer;flex-shrink:0;transition:transform .15s}
+.bv-hand .hand-card:hover{transform:translateY(-4px)}
+.bv-hand .hand-card.selectable{border-color:var(--accent);box-shadow:0 0 6px rgba(90,209,207,.4);animation:pulse 1.2s infinite}
+.bv-hand .hand-card.selected{border-color:var(--ok);box-shadow:0 0 8px rgba(75,191,115,.5)}
+.bv-field-prompt{position:absolute;left:50%;transform:translateX(-50%);z-index:8;background:rgba(14,16,22,.88);
+  border:1px solid var(--accent);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;
+  color:var(--accent);text-align:center;white-space:nowrap;pointer-events:none;
+  animation:pulse 1.2s infinite;bottom:4px}
+
+/* actions */
+.bv-actions{flex-shrink:0;background:var(--bg2);border-top:1px solid var(--line);padding:6px 8px;max-height:180px;overflow-y:auto}
+.bv-actions .prompt{font-size:12px;color:var(--accent);font-weight:700;margin-bottom:4px}
+.bv-actions .act-list{display:flex;flex-wrap:wrap;gap:4px}
+.bv-actions .act-btn{background:var(--bg3);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;transition:background .15s}
+.bv-actions .act-btn:hover{background:var(--accent);color:#000}
+.bv-actions .act-btn.end{border-color:var(--warn);color:var(--warn)}
+.bv-actions .act-btn.end:hover{background:var(--warn);color:#000}
+
+/* log */
+.bv-log{flex-shrink:0;max-height:80px;overflow-y:auto;background:#0b0d13;padding:4px 8px;font-family:ui-monospace,monospace;font-size:10px;line-height:1.5;border-top:1px solid var(--line);scrollbar-width:thin}
+.bv-log .ta{color:#7fe3e1}.bv-log .tb{color:#b9a6ff}.bv-log .ko{color:#ff9ba0;font-weight:700}
+.bv-log .log-line{white-space:pre-wrap}
+
+.bv-result{position:absolute;inset:0;background:rgba(14,16,22,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:10}
+.bv-result h2{font-size:24px;margin:0}
+.bv-result .win-a{color:#5ad1cf}.bv-result .win-b{color:#9a7cff}
+.bv-result .detail{font-size:13px;color:var(--muted)}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 4px rgba(90,209,207,.3)}50%{box-shadow:0 0 12px rgba(90,209,207,.7)}}
+
+/* battle animations */
+@keyframes bv-attack{0%{transform:translateX(0)}25%{transform:translateX(12px) scale(1.05)}50%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+@keyframes bv-damage{0%{filter:brightness(1)}15%{filter:brightness(2.5) saturate(0)}30%{transform:translateX(-6px)}45%{transform:translateX(6px)}60%{transform:translateX(-3px)}75%{transform:translateX(3px)}100%{filter:brightness(1);transform:translateX(0)}}
+@keyframes bv-bloom{0%{transform:scale(1);filter:brightness(1)}40%{transform:scale(1.15);filter:brightness(1.6) hue-rotate(30deg)}100%{transform:scale(1);filter:brightness(1)}}
+@keyframes bv-collab{0%{transform:translateY(0)}30%{transform:translateY(-10px)}60%{transform:translateY(2px)}100%{transform:translateY(0)}}
+@keyframes bv-down{0%{opacity:1;transform:rotate(0)}60%{opacity:.5;transform:rotate(8deg) scale(.9)}100%{opacity:0;transform:rotate(12deg) scale(.7) translateY(20px)}}
+@keyframes bv-dmg-popup{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-30px) scale(.8)}}
+@keyframes bv-toast-in{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes bv-toast-out{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.7)}}
+.bv-slot.anim-attack .card-thumb{animation:bv-attack .4s ease-out}
+.bv-slot.anim-damage .card-thumb{animation:bv-damage .5s ease-out}
+.bv-slot.anim-bloom .card-thumb{animation:bv-bloom .6s ease-out}
+.bv-slot.anim-collab .card-thumb{animation:bv-collab .4s ease-out}
+.bv-slot.anim-down{animation:bv-down .6s forwards}
+.bv-dmg-popup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:900;color:#ff5555;text-shadow:0 0 8px #ff0000,0 2px 4px rgba(0,0,0,.8);pointer-events:none;z-index:20;animation:bv-dmg-popup 1.2s forwards}
+.bv-event-toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;
+  background:rgba(14,16,22,.9);border:2px solid var(--accent2);border-radius:12px;padding:10px 20px;
+  font-size:14px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;
+  animation:bv-toast-in .3s ease-out forwards;pointer-events:none}
+.bv-event-toast.out{animation:bv-toast-out .3s forwards}
+
+@media(min-width:600px){
+  .bv-slot{width:68px}
+  .bv-slot .card-thumb{width:66px;height:92px}
+  .bv-slot .hp-bar{width:62px}
+  .bv-slot .slot-label{max-width:68px;font-size:8px}
+  .bv-hand .hand-card{width:56px;height:78px}
+  .zone-stack-wrap{width:46px;height:64px}
+  .zone-stack-wrap .zs-card{width:46px;height:64px}
+  .zone-stack-wrap .zs-badge{font-size:10px;min-width:18px;height:18px}
+  .zone-stack-wrap .zs-card .zs-diamond{width:18px;height:18px}
+}
+
+.card-popup{display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);max-width:320px;width:90vw;overflow:hidden;pointer-events:none}
+.card-popup.on{display:flex;flex-direction:column}
+.card-popup .cp-img{width:100%;aspect-ratio:63/88;object-fit:cover;background:var(--bg3);display:block}
+.card-popup .cp-body{padding:8px 10px;max-height:260px;overflow-y:auto;scrollbar-width:thin}
+.card-popup .cp-name{font-weight:700;font-size:14px;margin-bottom:2px}
+.card-popup .cp-meta{font-size:11px;color:var(--muted);margin-bottom:4px;display:flex;flex-wrap:wrap;gap:4px}
+.card-popup .cp-meta span{background:var(--bg3);padding:1px 6px;border-radius:4px}
+.card-popup .cp-stats{font-size:12px;margin-bottom:4px;display:flex;gap:8px;flex-wrap:wrap}
+.card-popup .cp-stats .hp{color:var(--ok);font-weight:700}
+.card-popup .cp-stats .dmg{color:var(--err);font-weight:700}
+.card-popup .cp-stats .cheer{color:var(--accent)}
+.card-popup .cp-text{font-size:11px;color:var(--text);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.card-popup .cp-text .cp-label{color:var(--accent);font-weight:700;font-size:10px;display:block;margin-top:4px}
+.card-popup .cp-attach{margin-top:4px;padding-top:4px;border-top:1px solid var(--line);font-size:11px}
+.card-popup .cp-attach .att-name{color:var(--accent2);font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span class="mark">HC</span><div>ホロカ デッキ構築シミュレーター<small id="metaline">hololive OFFICIAL CARD GAME</small></div></div>
+  <input class="deckname" id="deckname" placeholder="デッキ名を入力" value="無題のデッキ">
+  <div class="spacer"></div>
+  <span id="valbadge" class="badge bad">— </span>
+  <button class="btn primary" id="btnAuto">⚡ 自動構築</button>
+  <button class="btn" id="btnBattle">⚔ 対戦</button>
+  <button class="btn" id="btnSaved">💾 保存デッキ</button>
+  <button class="btn" id="btnShare">🔗 共有</button>
+  <button class="btn" id="btnExport">⬇ 書き出し</button>
+  <button class="btn ghost" id="btnClear">クリア</button>
+</header>
+
+<div class="wrap">
+  <!-- POOL -->
+  <section class="pool">
+    <div class="filters">
+      <div class="searchrow">
+        <input class="search" id="q" placeholder="🔍 カード名・番号・テキスト・タグで検索">
+        <select class="sel" id="setSel"><option value="">全収録商品</option></select>
+        <select class="sel" id="sortSel">
+          <option value="num">番号順</option>
+          <option value="name">名前順</option>
+          <option value="hp">HP順</option>
+        </select>
+      </div>
+      <div class="chips" id="catChips"></div>
+      <div class="chips" id="colorChips"></div>
+      <div class="chips" id="levelChips"></div>
+      <div class="filtermeta"><span id="poolCount">—</span><button class="chip" id="resetF">条件をリセット</button></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- DECK -->
+  <section class="deck">
+    <div class="deckhead">
+      <div class="counts">
+        <div class="countbox" id="cOshi"><div class="k">推し</div><div class="v">0<small>/1</small></div></div>
+        <div class="countbox" id="cMain"><div class="k">メインデッキ</div><div class="v">0<small>/50</small></div></div>
+        <div class="countbox" id="cCheer"><div class="k">エールデッキ</div><div class="v">0<small>/20</small></div></div>
+      </div>
+    </div>
+    <div class="decktabs">
+      <div class="decktab on" data-tab="list">デッキ</div>
+      <div class="decktab" data-tab="stats">統計</div>
+      <div class="decktab" data-tab="check">ルール診断</div>
+    </div>
+    <div class="deckbody" id="deckBody"></div>
+  </section>
+</div>
+
+<nav class="bottomnav" id="bottomNav">
+  <button class="on" data-view="pool"><span class="ico">🔍</span>カード</button>
+  <button data-view="deck"><span class="ico">📋</span>デッキ<span id="deckBadge"></span></button>
+  <button data-view="battle"><span class="ico">⚔</span>対戦</button>
+  <button data-view="more"><span class="ico">…</span>その他</button>
+</nav>
+
+<div id="battleView">
+  <div class="bv-top">
+    <span class="turn-info" id="bvTurn">対戦準備中</span>
+    <span class="phase-info" id="bvPhase"></span>
+    <button class="bv-quit" id="bvQuit">✕ 退出</button>
+  </div>
+  <div class="bv-field" id="bvField">
+    <div class="bv-half op" id="bvOpHalf">
+      <div class="bv-name-bar" id="bvOpInfo"></div>
+      <div class="bv-zone-left" id="bvOpLeft"></div>
+      <div class="bv-zone-center" id="bvOpStage">
+        <div class="bv-stage-row" id="bvOpFront"></div>
+        <div class="bv-back-row" id="bvOpBack"></div>
+      </div>
+      <div class="bv-zone-right" id="bvOpRight"></div>
+    </div>
+    <div class="bv-divider"></div>
+    <div class="bv-half me" id="bvMeHalf">
+      <div class="bv-name-bar" id="bvMeInfo"></div>
+      <div class="bv-zone-left" id="bvMeLeft"></div>
+      <div class="bv-zone-center" id="bvMeStage">
+        <div class="bv-stage-row" id="bvMeFront"></div>
+        <div class="bv-back-row" id="bvMeBack"></div>
+      </div>
+      <div class="bv-zone-right" id="bvMeRight"></div>
+    </div>
+  </div>
+  <div class="bv-hand" id="bvHand"></div>
+  <div class="bv-actions" id="bvActions" style="display:none"></div>
+  <div class="bv-log" id="bvLog"></div>
+</div>
+
+<div class="card-popup" id="cardPopup"><img class="cp-img" id="cpImg"><div class="cp-body" id="cpBody"></div></div>
+<div class="modal" id="modal"><div class="modalbox" id="modalBox"></div></div>
+<div class="dlg" id="dlg"><div class="dlgbox" id="dlgBox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script id="carddata" type="application/json">__CARD_DATA__</script>
+<script id="effectsdata" type="application/json">__EFFECTS_DATA__</script>
+<script id="engine">__ENGINE_JS__</script>
+<script>
+"use strict";
+/* ===================== data ===================== */
+const CARDS = JSON.parse(document.getElementById('carddata').textContent);
+const EFFECTS = JSON.parse(document.getElementById('effectsdata').textContent);
+const BYNUM = new Map(CARDS.map(c=>[c.n,c]));
+const ENGINE_DB = HoloEngine.buildDB(CARDS, EFFECTS);
+const COLORS = ['白','緑','赤','青','紫','黄','無'];
+const COLORVAR = {'白':'var(--c-white)','緑':'var(--c-green)','赤':'var(--c-red)','青':'var(--c-blue)','紫':'var(--c-purple)','黄':'var(--c-yellow)','無':'var(--c-none)'};
+const LEVELS = ['Debut','1st','2nd','Spot'];
+const LEVELCOLOR = {'Debut':'#5ad1cf','1st':'#7c9cff','2nd':'#c56cff','Spot':'#8a94a6'};
+const CATS = [['all','すべて'],['oshi','推しホロメン'],['holomen','ホロメン'],['support','サポート'],['cheer','エール']];
+const SETS = [...new Set(CARDS.map(c=>c.set))].sort();
+const LIMIT = {main:50,cheer:20,perCard:4};
+const UNLIMITED = new Set([
+  'hBP01-009','hBP01-015','hBP01-021','hBP01-024','hBP01-028','hBP01-032',
+  'hBP01-038','hBP01-044','hBP01-048','hBP01-052','hBP01-056','hBP01-062',
+  'hBP01-068','hBP01-072','hBP01-076','hBP01-082','hBP01-088','hBP01-092',
+  'hBP02-008','hBP02-014','hBP02-018','hBP02-024','hBP02-028','hBP02-035',
+  'hBP02-042','hBP02-048','hBP02-054','hBP02-061','hBP02-065',
+  'hBP03-009','hBP03-016','hBP03-025','hBP03-031','hBP03-037','hBP03-040',
+  'hBP03-046','hBP03-051','hBP03-057','hBP03-061','hBP03-067','hBP03-073','hBP03-080',
+  'hBP04-008','hBP04-016','hBP04-020','hBP04-028','hBP04-032','hBP04-039',
+  'hBP04-043','hBP04-050','hBP04-054','hBP04-063','hBP04-067','hBP04-073',
+  'hBP04-079','hBP04-083',
+  'hBP06-015',
+  'hSD02-002','hSD03-002','hSD04-002','hSD05-002','hSD07-002',
+  'hSD10-002','hSD10-007','hSD11-002','hSD11-007',
+  'hSD13-003','hSD13-008'
+]);
+
+/* ===================== state ===================== */
+const state = {
+  oshi:null, main:{}, cheer:{}, name:'無題のデッキ',
+  f:{q:'',cat:'all',colors:new Set(),levels:new Set(),set:'',sort:'num'},
+  tab:'list'
+};
+
+/* ===================== helpers ===================== */
+const $=(s,r=document)=>r.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+function catOf(c){return c.t;}
+function colorsOf(c){return (c.c&&c.c.length)?c.c:['無'];}
+function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+/* ===================== filtering ===================== */
+function matches(c){
+  const f=state.f;
+  if(f.cat!=='all' && c.t!==f.cat) return false;
+  if(f.set && c.set!==f.set) return false;
+  if(f.colors.size){ const cs=colorsOf(c); if(![...f.colors].some(x=>cs.includes(x))) return false; }
+  if(f.levels.size){ if(!c.bl || !f.levels.has(c.bl)) return false; }
+  if(f.q){
+    const q=f.q.toLowerCase();
+    const hay=[c.n,c.nm,(c.tg||[]).join(' '),c.tx?JSON.stringify(c.tx):''].join(' ').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+function sortCards(arr){
+  const f=state.f;
+  if(f.sort==='name') arr.sort((a,b)=>a.nm.localeCompare(b.nm,'ja'));
+  else if(f.sort==='hp') arr.sort((a,b)=>(b.hp||0)-(a.hp||0));
+  else arr.sort((a,b)=>a.n.localeCompare(b.n,'en',{numeric:true}));
+  return arr;
+}
+
+/* ===================== pool render (windowed) ===================== */
+let poolResults=[], poolShown=0;
+const PAGE=90;
+function renderPool(reset=true){
+  if(reset){ poolResults=sortCards(CARDS.filter(matches)); poolShown=0; $('#grid').innerHTML=''; }
+  const grid=$('#grid');
+  $('#poolCount').textContent=`${poolResults.length} 件`;
+  const old=$('#moreWrap'); if(old) old.remove();
+  if(!poolResults.length){ grid.innerHTML='<div class="empty">条件に合うカードがありません</div>'; return; }
+  const slice=poolResults.slice(poolShown,poolShown+PAGE);
+  const frag=document.createDocumentFragment();
+  for(const c of slice) frag.appendChild(cardTile(c));
+  grid.appendChild(frag);
+  poolShown+=slice.length;
+  if(poolShown<poolResults.length){
+    const w=el('div','moreWrap');w.id='moreWrap';w.style.gridColumn='1/-1';w.style.textAlign='center';w.style.padding='6px 0 24px';
+    const b=el('button','btn','あと '+(poolResults.length-poolShown)+' 件を表示');
+    b.onclick=()=>renderPool(false); w.appendChild(b); grid.appendChild(w);
+  }
+}
+function countInDeck(c){
+  if(c.t==='oshi') return state.oshi===c.n?1:0;
+  if(c.t==='cheer') return state.cheer[c.n]||0;
+  return state.main[c.n]||0;
+}
+function cardTile(c){
+  const t=el('div','card'); t.title=c.nm+' ('+c.n+')'; t.dataset.n=c.n;
+  const cnt=countInDeck(c);
+  const img=c.img?`<img loading="lazy" src="${c.img}" alt="${esc(c.nm)}">`:`<div class="noimg">${esc(c.nm)}</div>`;
+  const lvl=c.bl?`<span class="lvl" style="background:${LEVELCOLOR[c.bl]||'#556'};color:#0c0e14">${c.bl}</span>`:'';
+  t.innerHTML=`${img}<span class="cnum">${c.n}</span>${lvl}<span class="incount" style="${cnt?'':'display:none'}">${cnt}</span>`;
+  t.onclick=()=>addCard(c);
+  t.oncontextmenu=(e)=>{e.preventDefault();openModal(c);};
+  return t;
+}
+
+/* ===================== add / remove ===================== */
+function addCard(c){
+  if(c.t==='oshi'){ state.oshi=c.n; toast('推しホロメンを設定: '+c.nm); afterChange(); return; }
+  if(c.t==='cheer'){
+    if(sum(state.cheer)>=LIMIT.cheer){ toast('エールデッキは20枚までです'); return; }
+    state.cheer[c.n]=(state.cheer[c.n]||0)+1; afterChange(); return;
+  }
+  // main deck
+  const cur=state.main[c.n]||0;
+  if(!UNLIMITED.has(c.n) && cur>=LIMIT.perCard){ toast('同名カードは4枚までです'); return; }
+  if(sum(state.main)>=LIMIT.main){ toast('メインデッキは50枚までです'); return; }
+  state.main[c.n]=cur+1; afterChange();
+}
+function setQty(store,num,q){ if(q<=0) delete store[num]; else store[num]=q; afterChange(); }
+function afterChange(){ renderDeck(); updateCounts(); updateValidation(); persistHash(); refreshVisibleCounts(); if(typeof updateDeckBadge==='function')updateDeckBadge(); }
+function refreshVisibleCounts(){
+  document.querySelectorAll('#grid .card').forEach(t=>{
+    const c=BYNUM.get(t.dataset.n); if(!c) return;
+    const cnt=countInDeck(c); const badge=t.querySelector('.incount');
+    if(!badge) return; badge.textContent=cnt; badge.style.display=cnt?'':'none';
+  });
+}
+
+/* ===================== counts + validation ===================== */
+function updateCounts(){
+  const m=sum(state.main), ch=sum(state.cheer), o=state.oshi?1:0;
+  const set=(id,v,max,good)=>{const b=$(id);b.querySelector('.v').innerHTML=`${v}<small>/${max}</small>`;
+    b.classList.toggle('good',good);b.classList.toggle('bad',!good && v>0 || v>max);};
+  set('#cOshi',o,1,o===1);
+  set('#cMain',m,50,m===50);
+  set('#cCheer',ch,20,ch===20);
+}
+function validate(){
+  const errs=[],warns=[],oks=[];
+  const m=sum(state.main), ch=sum(state.cheer);
+  // oshi
+  if(!state.oshi) errs.push('推しホロメンが設定されていません（1枚必要）');
+  else oks.push('推しホロメン: '+BYNUM.get(state.oshi).nm);
+  // main count
+  if(m<50) errs.push(`メインデッキが${m}枚です（50枚ちょうど必要／あと${50-m}枚）`);
+  else if(m>50) errs.push(`メインデッキが${m}枚です（50枚を${m-50}枚超過）`);
+  else oks.push('メインデッキ 50枚 ✔');
+  // cheer count
+  if(ch<20) errs.push(`エールデッキが${ch}枚です（20枚ちょうど必要／あと${20-ch}枚）`);
+  else if(ch>20) errs.push(`エールデッキが${ch}枚です（20枚を${ch-20}枚超過）`);
+  else oks.push('エールデッキ 20枚 ✔');
+  // per-card limit (main)
+  const over=Object.entries(state.main).filter(([n,q])=>q>4 && !UNLIMITED.has(n));
+  over.forEach(([n,q])=>errs.push(`${BYNUM.get(n).nm}（${n}）が${q}枚（同名は4枚まで）`));
+  // cheer must be エール (guaranteed by add), verify anyway
+  Object.keys(state.cheer).forEach(n=>{if(BYNUM.get(n).t!=='cheer')errs.push(n+'はエールではありません');});
+  // warnings: color spread of oshi vs deck
+  if(state.oshi){
+    const oc=colorsOf(BYNUM.get(state.oshi));
+    const deckColors=new Set();
+    Object.keys(state.main).forEach(n=>colorsOf(BYNUM.get(n)).forEach(x=>x!=='無'&&deckColors.add(x)));
+    const off=[...deckColors].filter(x=>!oc.includes(x));
+    if(oc[0]!=='無' && off.length) warns.push(`推し（${oc.join('/')}）と異なる色のホロメンがいます: ${off.join('/')}（推しスキルの色条件に注意）`);
+  }
+  // debut presence
+  const hasDebut=Object.keys(state.main).some(n=>BYNUM.get(n).bl==='Debut');
+  if(m>0 && !hasDebut) warns.push('Debutホロメンがいません。最初にステージへ出せるホロメンが必要です');
+  const cheerColors=new Set();Object.keys(state.cheer).forEach(n=>colorsOf(BYNUM.get(n)).forEach(x=>cheerColors.add(x)));
+  return {errs,warns,oks,valid:errs.length===0};
+}
+function updateValidation(){
+  const v=validate();
+  const b=$('#valbadge');
+  b.className='badge '+(v.valid?'ok':'bad');
+  b.textContent=v.valid?'✓ 有効なデッキ':`⚠ ${v.errs.length} 件の問題`;
+  if(state.tab==='check') renderDeck();
+}
+
+/* ===================== deck render ===================== */
+function renderDeck(){
+  const body=$('#deckBody');
+  if(state.tab==='list') return renderList(body);
+  if(state.tab==='stats') return renderStats(body);
+  if(state.tab==='check') return renderCheck(body);
+}
+function drow(c,store){
+  const q=store===state.cheer?state.cheer[c.n]:state.main[c.n];
+  const r=el('div','drow');
+  const img=c.img?`<img src="${c.img}" alt="">`:`<div style="width:38px;height:53px;background:var(--bg);border-radius:4px"></div>`;
+  const cols=colorsOf(c).map(x=>`<span class="dot" style="background:${COLORVAR[x]}"></span>`).join('');
+  const sub=[c.bl,c.st,c.hp?('HP'+c.hp):''].filter(Boolean).join(' · ');
+  r.innerHTML=`${img}<div class="meta"><div class="nm">${esc(c.nm)}</div><div class="sub">${cols}${c.n} ${sub?'· '+sub:''}</div></div>`;
+  r.querySelector('img,div').style.cursor='pointer';
+  r.querySelector('.meta').onclick=()=>openModal(c);
+  if(r.querySelector('img')) r.querySelector('img').onclick=()=>openModal(c);
+  const st=el('div','stepper');
+  st.innerHTML=`<button>−</button><span class="qty">${q}</span><button>＋</button>`;
+  st.children[0].onclick=()=>setQty(store,c.n,q-1);
+  st.children[2].onclick=()=>addCard(c);
+  r.appendChild(st);
+  return r;
+}
+function renderList(body){
+  body.innerHTML='';
+  // oshi
+  body.appendChild(el('div','section-t','推しホロメン'));
+  const os=el('div','oshislot'+(state.oshi?' filled':''));
+  if(state.oshi){
+    const c=BYNUM.get(state.oshi);
+    os.innerHTML=`<img src="${c.img}" alt=""><div class="meta"><div class="nm" style="font-weight:700">${esc(c.nm)}</div><div class="sub" style="color:var(--muted);font-size:12px">${c.n} · LIFE ${c.lf||'-'} · ${colorsOf(c).join('/')}</div></div>`;
+    const rm=el('button','btn ghost','×');rm.onclick=()=>{state.oshi=null;afterChange();};os.appendChild(rm);
+    os.querySelector('img').style.cursor='pointer';os.querySelector('img').onclick=()=>openModal(c);
+  } else os.innerHTML='<div class="oshi-empty">推しホロメンを選択してください（左のリストで「推しホロメン」カードをクリック）</div>';
+  body.appendChild(os);
+
+  // main grouped by level then type
+  body.appendChild(el('div','section-t',`メインデッキ（${sum(state.main)}/50）`));
+  const mainCards=Object.keys(state.main).map(n=>BYNUM.get(n));
+  const groups=[['Debut','Debut'],['1st','1st'],['2nd','2nd'],['Spot','Spot'],['support','サポート']];
+  for(const [key,label] of groups){
+    let cs;
+    if(key==='support') cs=mainCards.filter(c=>c.t==='support');
+    else cs=mainCards.filter(c=>c.t==='holomen'&&c.bl===key);
+    if(!cs.length) continue;
+    sortCards(cs);
+    const n=cs.reduce((a,c)=>a+state.main[c.n],0);
+    body.appendChild(el('div','grouplabel',`<span>${label}</span><span>${n}枚</span>`));
+    cs.forEach(c=>body.appendChild(drow(c,state.main)));
+  }
+  if(!mainCards.length) body.appendChild(el('div','empty','メインデッキが空です'));
+
+  // cheer
+  body.appendChild(el('div','section-t',`エールデッキ（${sum(state.cheer)}/20）`));
+  const cheerCards=Object.keys(state.cheer).map(n=>BYNUM.get(n));
+  if(cheerCards.length){ sortCards(cheerCards); cheerCards.forEach(c=>body.appendChild(drow(c,state.cheer))); }
+  else body.appendChild(el('div','empty','エールデッキが空です（エールカードをクリック）'));
+}
+
+/* ===================== stats ===================== */
+function renderStats(body){
+  body.innerHTML='';
+  const wrap=el('div','stats');
+  const mainCards=Object.entries(state.main).map(([n,q])=>[BYNUM.get(n),q]);
+  // color balance (holomen only, count copies)
+  const colCount={}; COLORS.forEach(c=>colCount[c]=0);
+  let coloredTotal=0;
+  mainCards.forEach(([c,q])=>{ if(c.t==='holomen'){ colorsOf(c).forEach(col=>{colCount[col]+=q;coloredTotal+=q;}); }});
+  wrap.appendChild(colorDonut(colCount,coloredTotal));
+  // level distribution
+  const lvl={}; LEVELS.forEach(l=>lvl[l]=0);
+  mainCards.forEach(([c,q])=>{ if(c.bl&&lvl[c.bl]!=null) lvl[c.bl]+=q; });
+  wrap.appendChild(hbarBlock('Bloomレベル分布', LEVELS.map(l=>[l,lvl[l],LEVELCOLOR[l]])));
+  // card type breakdown
+  const holo=mainCards.filter(([c])=>c.t==='holomen').reduce((a,[,q])=>a+q,0);
+  const supByType={};
+  mainCards.forEach(([c,q])=>{ if(c.t==='support'){const k=c.st||'サポート';supByType[k]=(supByType[k]||0)+q;} });
+  const typeRows=[['ホロメン',holo,'#5ad1cf'],...Object.entries(supByType).map(([k,v],i)=>[k,v,['#7c5cff','#e6b800','#4bbf73','#e5484d','#4c8dff','#a668e8'][i%6]])];
+  wrap.appendChild(hbarBlock('カードタイプ内訳', typeRows));
+  // cheer colors
+  const chc={}; COLORS.forEach(c=>chc[c]=0); let cht=0;
+  Object.entries(state.cheer).forEach(([n,q])=>{colorsOf(BYNUM.get(n)).forEach(col=>{chc[col]+=q;cht+=q;});});
+  const chRows=COLORS.filter(c=>chc[c]>0).map(c=>[c,chc[c],COLORVAR[c].replace('var(--c-','').replace(')','')]);
+  wrap.appendChild(hbarBlock(`エール色配分（${cht}/20）`, COLORS.filter(c=>chc[c]).map(c=>[c,chc[c],COLORVAR[c]])));
+  if(!mainCards.length && !cht) wrap.appendChild(el('div','empty','カードを追加すると統計が表示されます'));
+  body.appendChild(wrap);
+}
+function colorDonut(colCount,total){
+  const b=el('div','statblock');
+  b.appendChild(el('h4',null,'メインのホロメン色バランス'));
+  const wrap=el('div','donutwrap');
+  let grad=[],acc=0;
+  const used=COLORS.filter(c=>colCount[c]>0);
+  if(total===0){ grad.push('var(--bg3) 0 100%'); }
+  else used.forEach(c=>{const pct=colCount[c]/total*100;grad.push(`${COLORVAR[c]} ${acc}% ${acc+pct}%`);acc+=pct;});
+  const d=el('div','donut');d.style.background=`conic-gradient(${grad.join(',')})`;
+  d.innerHTML=`<div class="cx"><b>${total}</b><small>ホロメン</small></div>`;
+  const leg=el('div','legend');
+  used.forEach(c=>{const li=el('div','li');li.innerHTML=`<span class="dot" style="background:${COLORVAR[c]}"></span>${c} ${colCount[c]} (${total?Math.round(colCount[c]/total*100):0}%)`;leg.appendChild(li);});
+  if(!used.length) leg.appendChild(el('div','li','—'));
+  wrap.appendChild(d);wrap.appendChild(leg);b.appendChild(wrap);
+  return b;
+}
+function hbarBlock(title,rows){
+  const b=el('div','statblock');b.appendChild(el('h4',null,title));
+  const max=Math.max(1,...rows.map(r=>r[1]));
+  const box=el('div','hbars');
+  rows.forEach(([label,val,color])=>{
+    const r=el('div','hbar');
+    r.innerHTML=`<span>${label}</span><div class="track"><div class="fill" style="width:${val/max*100}%;background:${color}"></div></div><span class="n">${val}</span>`;
+    box.appendChild(r);
+  });
+  b.appendChild(box);return b;
+}
+
+/* ===================== rule check tab ===================== */
+function renderCheck(body){
+  body.innerHTML='';
+  const v=validate();
+  const ul=el('ul','vlist');
+  v.errs.forEach(t=>ul.appendChild(el('li','e','✕ '+t)));
+  v.warns.forEach(t=>ul.appendChild(el('li','w','⚠ '+t)));
+  v.oks.forEach(t=>ul.appendChild(el('li','ok','✓ '+t)));
+  if(v.valid) ul.appendChild(el('li','ok','✓ このデッキは構築ルールを満たしています'));
+  body.appendChild(ul);
+  const note=el('div',null,`<div class="section-t" style="margin-top:18px">デッキ構築ルール</div>
+    <ul style="color:var(--muted);font-size:12px;line-height:1.8;padding-left:18px">
+    <li>推しホロメン … 1枚</li><li>メインデッキ … 50枚ちょうど（ホロメン＋サポート）</li>
+    <li>エールデッキ … 20枚ちょうど（エールのみ）</li><li>同じカードナンバーはメインデッキに4枚まで</li>
+    <li>推しホロメンとメインデッキのカードは、大会レギュレーション（例：セレクションカップ）で使用可能な収録商品のもののみ使用可</li></ul>`);
+  body.appendChild(note);
+}
+
+/* ===================== modal ===================== */
+function openModal(c){
+  const box=$('#modalBox');
+  const kv=[];
+  kv.push(['タイプ', c.t==='oshi'?'推しホロメン':c.t==='holomen'?('ホロメン'+(c.st?'（'+c.st+'）':'')):c.t==='cheer'?'エール':('サポート'+(c.st?'・'+c.st:''))]);
+  if(c.c&&c.c.length) kv.push(['色', colorsOf(c).join('/')]); else kv.push(['色','—']);
+  if(c.bl) kv.push(['Bloom',c.bl]);
+  if(c.hp) kv.push(['HP',c.hp]);
+  if(c.lf) kv.push(['LIFE',c.lf]);
+  if(c.bt) kv.push(['バトンタッチ',c.bt]);
+  if(c.r) kv.push(['レアリティ',c.r.join(' / ')]);
+  const tx=c.tx||{};
+  let txHtml='';
+  const add=(lab,val)=>{if(val)txHtml+=`<div class="txtblock"><div class="lab">${lab}</div><p>${esc(val)}</p></div>`;};
+  add('推しスキル',tx.o); add('SP推しスキル',tx.s);
+  if(tx.k) tx.k.forEach(k=>add('キーワード',k));
+  if(tx.a) tx.a.forEach(a=>add('アーツ',a));
+  add('能力テキスト',tx.b);
+  const cnt=countInDeck(c);
+  const inDeckLabel = c.t==='oshi'?(state.oshi===c.n?'設定中':'推しに設定'):`デッキに追加${cnt?'（'+cnt+'枚）':''}`;
+  box.innerHTML=`<button class="mclose" onclick="closeModal()">×</button>
+    <div class="mgrid">
+      <div class="mimg">${c.img?`<img src="${c.img}" alt="">`:'<div class="noimg">画像なし</div>'}</div>
+      <div class="mbody">
+        <h3>${esc(c.nm)}</h3><div class="mnum">${c.n} · ${(c.pr||[]).join(' / ')||c.set}</div>
+        <div class="kv">${kv.map(([k,v])=>`<span class="t"><b style="color:var(--muted)">${k}</b> ${esc(String(v))}</span>`).join('')}</div>
+        ${(c.tg||[]).length?`<div class="kv">${c.tg.map(t=>`<span class="t">${esc(t)}</span>`).join('')}</div>`:''}
+        ${txHtml||'<p style="color:var(--muted)">テキスト情報なし</p>'}
+        <div class="madd">
+          <button class="btn primary" onclick="addFromModal('${c.n}')">＋ ${inDeckLabel}</button>
+          ${cnt&&c.t!=='oshi'?`<button class="btn" onclick="removeFromModal('${c.n}')">− 1枚減らす</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  $('#modal').classList.add('on');
+}
+function closeModal(){$('#modal').classList.remove('on');}
+function addFromModal(n){addCard(BYNUM.get(n));const c=BYNUM.get(n);openModal(c);}
+function removeFromModal(n){const c=BYNUM.get(n);const store=c.t==='cheer'?state.cheer:state.main;setQty(store,n,(store[n]||0)-1);openModal(c);}
+$('#modal').onclick=(e)=>{if(e.target.id==='modal')closeModal();};
+
+/* ===================== save / share / export ===================== */
+function deckObj(){return {v:1,name:state.name,oshi:state.oshi,main:state.main,cheer:state.cheer};}
+function loadDeck(o){
+  if(!o)return;
+  state.oshi=o.oshi&&BYNUM.has(o.oshi)?o.oshi:null;
+  state.main={};Object.entries(o.main||{}).forEach(([n,q])=>{if(BYNUM.has(n))state.main[n]=q;});
+  state.cheer={};Object.entries(o.cheer||{}).forEach(([n,q])=>{if(BYNUM.has(n))state.cheer[n]=q;});
+  state.name=o.name||'読み込んだデッキ';$('#deckname').value=state.name;
+  afterChange();
+}
+function encodeDeck(){return btoa(unescape(encodeURIComponent(JSON.stringify(deckObj()))));}
+function decodeDeck(s){try{return JSON.parse(decodeURIComponent(escape(atob(s))));}catch(e){return null;}}
+function persistHash(){try{location.replace('#'+encodeDeck());}catch(e){}}
+function textList(){
+  const line=(n,q)=>`${q}x ${BYNUM.get(n).nm} (${n})`;
+  let out=`【${state.name}】\n`;
+  out+=`\n■推しホロメン\n`+(state.oshi?line(state.oshi,1):'（未設定）');
+  out+=`\n\n■メインデッキ (${sum(state.main)}/50)\n`+Object.entries(state.main).sort((a,b)=>a[0].localeCompare(b[0],'en',{numeric:true})).map(([n,q])=>line(n,q)).join('\n');
+  out+=`\n\n■エールデッキ (${sum(state.cheer)}/20)\n`+Object.entries(state.cheer).map(([n,q])=>line(n,q)).join('\n');
+  return out;
+}
+function openDlg(html){const b=$('#dlgBox');b.innerHTML=html;$('#dlg').classList.add('on');}
+function closeDlg(){$('#dlg').classList.remove('on');}
+$('#dlg').onclick=(e)=>{if(e.target.id==='dlg')closeDlg();};
+
+$('#btnShare').onclick=()=>{
+  const url=location.href.split('#')[0]+'#'+encodeDeck();
+  openDlg(`<h3>🔗 デッキを共有</h3>
+   <p style="color:var(--muted);font-size:13px">下のデッキコード（またはURL）をコピーして共有できます。読み込みは「保存デッキ → コードから読み込み」から。</p>
+   <textarea id="shareTa" readonly>${encodeDeck()}</textarea>
+   <div class="row">
+     <button class="btn" onclick="navigator.clipboard.writeText(location.href.split('#')[0]+'#'+'${encodeDeck()}').then(()=>toast('URLをコピーしました'))">URLをコピー</button>
+     <button class="btn primary" onclick="navigator.clipboard.writeText(document.getElementById('shareTa').value).then(()=>toast('コードをコピーしました'))">コードをコピー</button>
+     <button class="btn ghost" onclick="closeDlg()">閉じる</button>
+   </div>`);
+};
+$('#btnExport').onclick=()=>{
+  openDlg(`<h3>⬇ 書き出し</h3>
+   <p style="color:var(--muted);font-size:13px">テキストのデッキリスト（コピー用）</p>
+   <textarea id="expTa" readonly>${esc(textList())}</textarea>
+   <div class="row">
+     <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('expTa').value).then(()=>toast('コピーしました'))">テキストをコピー</button>
+     <button class="btn" onclick="downloadFile(state.name+'.json',JSON.stringify(deckObj(),null,2))">JSONで保存</button>
+     <button class="btn" onclick="downloadFile(state.name+'.txt',textList())">テキストで保存</button>
+     <button class="btn ghost" onclick="closeDlg()">閉じる</button>
+   </div>`);
+};
+function downloadFile(name,content){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain'}));
+  a.download=name;a.click();URL.revokeObjectURL(a.href);toast('保存しました: '+name);
+}
+/* saved decks (localStorage) */
+const LS='holoca_decks';
+function getSaved(){try{return JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){return[];}}
+function setSaved(a){localStorage.setItem(LS,JSON.stringify(a));}
+$('#btnSaved').onclick=()=>renderSavedDlg();
+function renderSavedDlg(){
+  const saved=getSaved();
+  const rows=saved.map((d,i)=>`<div class="savedrow">
+     <div class="nm">${esc(d.name)} <small>· 推し${d.oshi?1:0} / 主${sum(d.main)} / 援${sum(d.cheer)}</small></div>
+     <button class="btn" onclick="loadSaved(${i})">読込</button>
+     <button class="btn ghost" onclick="delSaved(${i})">削除</button>
+   </div>`).join('')||'<div style="color:var(--muted);padding:8px">保存されたデッキはありません</div>';
+  openDlg(`<h3>💾 保存デッキ</h3>
+   <div class="savedlist">${rows}</div>
+   <div class="row" style="justify-content:space-between">
+     <button class="btn primary" onclick="saveCurrent()">＋ 現在のデッキを保存</button>
+     <button class="btn" onclick="promptCode()">コードから読み込み</button>
+     <button class="btn ghost" onclick="closeDlg()">閉じる</button>
+   </div>`);
+}
+function saveCurrent(){const a=getSaved();a.unshift(deckObj());setSaved(a);toast('保存しました');renderSavedDlg();}
+function loadSaved(i){loadDeck(getSaved()[i]);closeDlg();toast('読み込みました');}
+function delSaved(i){const a=getSaved();a.splice(i,1);setSaved(a);renderSavedDlg();}
+function promptCode(){
+  openDlg(`<h3>コード / JSON から読み込み</h3>
+   <textarea id="impTa" placeholder="デッキコードまたはJSONを貼り付け"></textarea>
+   <div class="row"><button class="btn primary" onclick="doImport()">読み込む</button><button class="btn ghost" onclick="renderSavedDlg()">戻る</button></div>`);
+}
+function doImport(){
+  const v=$('#impTa').value.trim();if(!v)return;
+  let o=null; if(v[0]==='{'){try{o=JSON.parse(v);}catch(e){}} if(!o)o=decodeDeck(v);
+  if(o){loadDeck(o);closeDlg();toast('読み込みました');}else toast('読み込めませんでした');
+}
+$('#btnClear').onclick=()=>{
+  openDlg(`<h3>デッキをクリア</h3><p style="color:var(--muted)">現在のデッキ内容を全て消去します。よろしいですか？</p>
+   <div class="row"><button class="btn ghost" onclick="closeDlg()">キャンセル</button>
+   <button class="btn primary" onclick="state.oshi=null;state.main={};state.cheer={};afterChange();closeDlg();toast('クリアしました')">クリアする</button></div>`);
+};
+
+/* ===================== filters UI ===================== */
+function buildFilters(){
+  const cc=$('#catChips');
+  CATS.forEach(([v,l])=>{const c=el('button','chip cat'+(state.f.cat===v?' on':''),l);c.onclick=()=>{state.f.cat=v;syncCat();renderPool();};cc.appendChild(c);});
+  const col=$('#colorChips');
+  COLORS.forEach(cn=>{const c=el('button','chip color',`<span class="dot" style="background:${COLORVAR[cn]}"></span>${cn}`);
+    c.dataset.c=cn;c.onclick=()=>{state.f.colors.has(cn)?state.f.colors.delete(cn):state.f.colors.add(cn);c.classList.toggle('on');
+      c.style.background=c.classList.contains('on')?COLORVAR[cn]:'';renderPool();};col.appendChild(c);});
+  const lv=$('#levelChips');
+  LEVELS.forEach(l=>{const c=el('button','chip',l);c.onclick=()=>{state.f.levels.has(l)?state.f.levels.delete(l):state.f.levels.add(l);
+    c.classList.toggle('on');c.style.background=c.classList.contains('on')?LEVELCOLOR[l]:'';c.style.color=c.classList.contains('on')?'#0c0e14':'';renderPool();};lv.appendChild(c);});
+  const ss=$('#setSel');SETS.forEach(s=>{const o=el('option');o.value=s;o.textContent=s;ss.appendChild(o);});
+  ss.onchange=()=>{state.f.set=ss.value;renderPool();};
+  $('#sortSel').onchange=(e)=>{state.f.sort=e.target.value;renderPool();};
+  $('#q').oninput=(e)=>{state.f.q=e.target.value;renderPool();};
+  $('#resetF').onclick=resetFilters;
+}
+function syncCat(){[...$('#catChips').children].forEach(c=>c.classList.toggle('on',c.textContent===CATS.find(x=>x[0]===state.f.cat)[1]));}
+function resetFilters(){
+  state.f={q:'',cat:'all',colors:new Set(),levels:new Set(),set:'',sort:'num'};
+  $('#q').value='';$('#setSel').value='';$('#sortSel').value='num';
+  [...$('#colorChips').children,...$('#levelChips').children].forEach(c=>{c.classList.remove('on');c.style.background='';c.style.color='';});
+  syncCat();renderPool();
+}
+
+/* ===================== tabs ===================== */
+[...document.querySelectorAll('.decktab')].forEach(t=>t.onclick=()=>{
+  state.tab=t.dataset.tab;document.querySelectorAll('.decktab').forEach(x=>x.classList.toggle('on',x===t));renderDeck();
+});
+$('#deckname').oninput=(e)=>{state.name=e.target.value;persistHash();};
+
+/* ===================== arts / power parsing ===================== */
+function artsPower(c){
+  if(!c||c.t!=='holomen'||!c.tx||!c.tx.a) return 0;
+  let best=0;
+  c.tx.a.forEach(a=>{
+    // 1行目 = "[コスト]アーツ名　基礎値+[特効]"。角括弧（コスト・特効）を除去し、
+    // アーツ名に含まれる数字を避けるため“最後の数値”を基礎値として採用する。
+    const line=a.split('\n')[0].replace(/\[[^\]]*\]/g,' ');
+    const nums=(line.match(/\d+/g)||[]).map(Number);
+    if(nums.length) best=Math.max(best, nums[nums.length-1]);
+  });
+  return best;
+}
+function levelCount(main,level){return Object.entries(main).reduce((a,[n,q])=>a+(BYNUM.get(n)?.bl===level?q:0),0);}
+function mainCount(main){return Object.values(main).reduce((a,b)=>a+b,0);}
+
+/* ===================== auto deck build ===================== */
+function basicCheer(color){
+  return CARDS.find(c=>c.t==='cheer'&&c.c.length===1&&c.c[0]===color)
+      || CARDS.find(c=>c.t==='cheer'&&c.c.includes(color));
+}
+function autoBuild(oshiNum,trumpNum){
+  const oshi=BYNUM.get(oshiNum);
+  if(!oshi||oshi.t!=='oshi') return {err:'推しホロメンを選択してください'};
+  const trump=trumpNum?BYNUM.get(trumpNum):null;
+  let colors=[...new Set([...(oshi.c||[]),...(trump&&trump.t!=='support'?(trump.c||[]):[])].filter(x=>x&&x!=='無'))];
+  if(!colors.length) colors=['白'];
+
+  const main={};
+  const add=(c,q)=>{ if(!c)return; main[c.n]=Math.min(4,(main[c.n]||0)+q); };
+  const preferNames=new Set();
+
+  // 1) 切り札ラインを最優先で投入（同名は各レベル1枚ずつでブルームラインを作る）
+  if(trump){
+    if(trump.t==='holomen'){
+      preferNames.add(trump.nm);
+      add(trump,4);
+      ['Debut','1st','2nd'].forEach(L=>{
+        if(L===trump.bl) return;
+        const same=CARDS.filter(c=>c.t==='holomen'&&c.nm===trump.nm&&c.bl===L)
+          .sort((a,b)=>artsPower(b)-artsPower(a))[0];
+        if(same) add(same, L==='2nd'?3:4);
+      });
+    } else if(trump.t==='support'){ add(trump,4); }
+  }
+
+  // 2) レベル別の目標枚数でホロメンを積む（Debut18 / 1st14 / 2nd6）
+  const targets={'Debut':18,'1st':14,'2nd':6};
+  const pickLevel=(level,target)=>{
+    const cand=CARDS.filter(c=>c.t==='holomen'&&c.bl===level&&c.c.some(x=>colors.includes(x)));
+    cand.sort((a,b)=>{
+      const pa=preferNames.has(a.nm)?1:0, pb=preferNames.has(b.nm)?1:0;
+      if(pa!==pb) return pb-pa;                       // 既存ラインの名前を優先（ブルーム用）
+      return artsPower(b)-artsPower(a);                // 次にアーツ火力
+    });
+    for(const c of cand){
+      if(levelCount(main,level)>=target) break;
+      const room=Math.min(4,target-levelCount(main,level));
+      add(c,room);
+      if(c.bl!=='Debut') preferNames.add(c.nm);
+    }
+  };
+  pickLevel('Debut',targets.Debut);
+  pickLevel('1st',targets['1st']);
+  // 2ndは、採用済みDebut/1stと同名を最優先
+  pickLevel('2nd',targets['2nd']);
+
+  // 3) サポートで50枚まで埋める（多くの商品に再録＝定番として優先）
+  const supTarget=50;
+  const supports=CARDS.filter(c=>c.t==='support')
+    .sort((a,b)=>((b.pr||[]).length-(a.pr||[]).length)||a.n.localeCompare(b.n,'en',{numeric:true}));
+  for(const c of supports){
+    if(mainCount(main)>=supTarget) break;
+    add(c,Math.min(4,supTarget-mainCount(main)));
+  }
+  // まだ足りなければホロメンで補充
+  if(mainCount(main)<50){
+    const extra=CARDS.filter(c=>c.t==='holomen'&&c.c.some(x=>colors.includes(x)))
+      .sort((a,b)=>artsPower(b)-artsPower(a));
+    for(const c of extra){ if(mainCount(main)>=50)break; add(c,Math.min(4,50-mainCount(main))); }
+  }
+  // 超過していれば末尾から削る
+  while(mainCount(main)>50){
+    const keys=Object.keys(main); const k=keys[keys.length-1];
+    main[k]-=1; if(main[k]<=0) delete main[k];
+  }
+
+  // 4) エールデッキ20枚：採用ホロメンの色比率で配分
+  const colw={}; let tot=0;
+  Object.entries(main).forEach(([n,q])=>{const c=BYNUM.get(n);if(c.t==='holomen')c.c.forEach(col=>{if(col!=='無'){colw[col]=(colw[col]||0)+q;tot+=q;}});});
+  if(!tot){ colors.forEach(c=>colw[c]=1); tot=colors.length; }
+  const cheer={};
+  let assigned=0; const entries=Object.entries(colw).sort((a,b)=>b[1]-a[1]);
+  entries.forEach(([col,w],i)=>{
+    let n=Math.round(20*w/tot);
+    if(i===entries.length-1) n=20-assigned;          // 端数は最後で調整
+    n=Math.max(0,Math.min(20-assigned,n));
+    const cc=basicCheer(col); if(cc&&n>0){cheer[cc.n]=(cheer[cc.n]||0)+n;assigned+=n;}
+  });
+  if(assigned<20){ const cc=basicCheer(entries[0]?.[0]||colors[0]); if(cc)cheer[cc.n]=(cheer[cc.n]||0)+(20-assigned); }
+
+  return {oshi:oshiNum,main,cheer,colors,name:`おすすめ：${oshi.nm}${trump?'／'+trump.nm:''}`};
+}
+
+/* ===================== battle simulation (real rules engine) ===================== */
+// Phase1ルールエンジン（engine.cjs / HoloEngineとして埋め込み）を使用。
+// 盤面・ターン進行・ブルーム・エール経済・バトンタッチ・ライフ処理を忠実に再現し、
+// 勝率はA/Bスロットを入れ替えて平均するモンテカルロ（HoloEngine.simulate）で推定する。
+// カード固有効果はまだ未実装（バニラ＝アーツ火力/HP/色コストのみ）。詳細はENGINE-DESIGN.md参照。
+function deckSummary(d){
+  const main=Object.entries(d.main||{}).map(([n,q])=>[BYNUM.get(n),q]).filter(([c])=>c);
+  const oshi=d.oshi?BYNUM.get(d.oshi):null;
+  const life=oshi?.lf||5;
+  const lvlAtk={}, lvlHP={};
+  ['Debut','1st','2nd'].forEach(L=>{
+    const cs=main.filter(([c])=>c.t==='holomen'&&c.bl===L);
+    let hp=0,n=0,bestPow=0;
+    cs.forEach(([c,q])=>{ bestPow=Math.max(bestPow, artsPower(c)); hp+=(c.hp||0)*q; n+=q; });
+    lvlAtk[L]=bestPow; lvlHP[L]= n? hp/n : 0;
+  });
+  let ct=0; const cheerColors={};
+  Object.entries(d.cheer||{}).forEach(([n,q])=>{const c=BYNUM.get(n);if(c)c.c.forEach(col=>{cheerColors[col]=(cheerColors[col]||0)+q;ct+=q;});});
+  const deckColors=new Set(); main.forEach(([c])=>{if(c.t==='holomen')c.c.forEach(x=>x!=='無'&&deckColors.add(x));});
+  let match=0,tot=0; [...deckColors].forEach(col=>{tot++;if(cheerColors[col])match++;});
+  const cheerFit = tot? match/tot : 1;
+  return {life,lvlAtk,lvlHP,cheerFit,oshiName:oshi?.nm||'—',name:d.name||'デッキ'};
+}
+function runBattle(deckA,deckB,games=500){
+  const A=deckSummary(deckA), B=deckSummary(deckB);
+  const R=HoloEngine.simulate(deckA,deckB,ENGINE_DB,games,{maxTurns:60});
+  // 代表サンプルログを1戦（実エンジンでプレイした本物のログ）
+  const sample=HoloEngine.playGame(deckA,deckB,ENGINE_DB,{log:true,maxTurns:60});
+  const log=sample.log.map(l=>({cls:l.cls,t:l.t}));
+  return {A,B,wa:R.wa,wb:R.wb,games:R.games,avgTurn:R.avgTurn.toFixed(1),log};
+}
+
+/* ===================== auto-build UI ===================== */
+$('#btnAuto').onclick=()=>{
+  const oshis=CARDS.filter(c=>c.t==='oshi').sort((a,b)=>a.nm.localeCompare(b.nm,'ja'));
+  const oshiOpts=oshis.map(c=>`<option value="${c.n}">${esc(c.nm)}（${c.n}・${(c.c||['無']).join('/')}・LIFE${c.lf||'-'}）</option>`).join('');
+  openDlg(`<h3>⚡ おすすめデッキ自動構築</h3>
+   <p class="mini-note">推しホロメンと切り札（軸にしたいカード）を選ぶと、色に合わせてブルームライン・サポート・エール20枚まで自動で組みます。</p>
+   <div class="field"><label>推しホロメン</label><select id="abOshi">${oshiOpts}</select></div>
+   <div class="field"><label>切り札（任意・カード名/番号で検索）</label>
+     <input id="abTrump" list="abTrumpList" placeholder="例：ベスティア・ゼータ / hBP01-027（空欄可）">
+     <datalist id="abTrumpList"></datalist>
+   </div>
+   <div class="colorprev" id="abPrev"></div>
+   <div class="recipe-preview" id="abRecipe" style="display:none"></div>
+   <div class="row">
+     <button class="btn" id="abGen">レシピを生成</button>
+     <button class="btn primary" id="abApply" style="display:none">このデッキを読み込む</button>
+     <button class="btn ghost" onclick="closeDlg()">閉じる</button>
+   </div>`);
+  // trump datalist: holomen + support
+  const dl=$('#abTrumpList');
+  CARDS.filter(c=>c.t==='holomen'||c.t==='support').forEach(c=>{const o=el('option');o.value=c.nm+' / '+c.n;dl.appendChild(o);});
+  let built=null;
+  const resolveTrump=()=>{const v=$('#abTrump').value.trim();if(!v)return null;
+    const m=v.match(/(h[A-Za-z0-9]+-\d+)/);if(m&&BYNUM.has(m[1]))return m[1];
+    const byName=CARDS.find(c=>c.nm===v.split(' / ')[0]);return byName?byName.n:null;};
+  const updPrev=()=>{const o=BYNUM.get($('#abOshi').value);const t=resolveTrump()?BYNUM.get(resolveTrump()):null;
+    let cols=[...new Set([...(o?.c||[]),...(t&&t.t!=='support'?(t.c||[]):[])].filter(x=>x&&x!=='無'))];if(!cols.length)cols=['白'];
+    $('#abPrev').innerHTML='デッキ色: '+cols.map(c=>`<span class="dot" style="background:${COLORVAR[c]}"></span>${c}`).join(' ');};
+  $('#abOshi').onchange=updPrev; $('#abTrump').oninput=updPrev; updPrev();
+  $('#abGen').onclick=()=>{
+    built=autoBuild($('#abOshi').value, resolveTrump());
+    if(built.err){toast(built.err);return;}
+    const lvlN=L=>Object.entries(built.main).reduce((a,[n,q])=>a+(BYNUM.get(n).bl===L?q:0),0);
+    const sup=Object.entries(built.main).reduce((a,[n,q])=>a+(BYNUM.get(n).t==='support'?q:0),0);
+    const cheerLine=Object.entries(built.cheer).map(([n,q])=>`${BYNUM.get(n).nm}×${q}`).join('・');
+    $('#abRecipe').style.display='';
+    $('#abRecipe').innerHTML=`<b>${esc(built.name)}</b><br>
+      推し: ${esc(BYNUM.get(built.oshi).nm)}／メイン ${mainCount(built.main)}枚
+      （Debut ${lvlN('Debut')}・1st ${lvlN('1st')}・2nd ${lvlN('2nd')}・サポート ${sup}）<br>
+      エール(20): ${esc(cheerLine)}`;
+    $('#abApply').style.display='';
+  };
+  $('#abApply').onclick=()=>{ if(!built)return; loadDeck({v:1,name:built.name,oshi:built.oshi,main:built.main,cheer:built.cheer});
+    closeDlg(); state.tab='list'; document.querySelectorAll('.decktab').forEach(x=>x.classList.toggle('on',x.dataset.tab==='list')); renderDeck();
+    toast('おすすめデッキを読み込みました'); };
+};
+
+/* ===================== battle UI ===================== */
+$('#btnBattle').onclick=()=>{
+  const saved=getSaved();
+  const curValid=state.oshi&&mainCount(state.main)>0;
+  const optsFrom=(arr,cur)=>arr.map((d,i)=>`<option value="${i}">${esc(d.name||'デッキ'+i)}（推し:${d.oshi?esc(BYNUM.get(d.oshi)?.nm||'?'):'なし'} / 主${mainCount(d.main||{})}）</option>`).join('');
+  const curOpt=curValid?`<option value="cur">▶ 現在のデッキ（${esc(state.name)}）</option>`:'';
+  if(!saved.length && !curValid){ openDlg(`<h3>⚔ 対戦シミュレーション</h3><p class="mini-note">対戦するには、デッキを2つ以上用意してください（「保存デッキ」で登録、または現在のデッキを構築）。</p><div class="row"><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>`); return; }
+  openDlg(`<h3>⚔ 対戦</h3>
+   <div class="field"><label>モード</label><select id="bMode"><option value="ai">🎮 AI対戦（自分で操作）</option><option value="sim">📊 シミュレーション（自動）</option></select></div>
+   <div id="bModeAI">
+     <p class="mini-note">あなたがプレイヤーAとしてAIと対戦します。すべての選択を自分で行います。</p>
+     <div class="field"><label>あなたのデッキ</label><select id="bAI_A">${curOpt}${optsFrom(saved)}</select></div>
+     <div class="field"><label>AI（対戦相手）</label><select id="bAI_B">${optsFrom(saved)}${curOpt}</select></div>
+     <div class="row"><button class="btn primary" id="bStartAI">⚔ 対戦開始</button><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>
+   </div>
+   <div id="bModeSim" style="display:none">
+     <p class="mini-note">実際に盤面を持ってルール通りに自動対戦させ、勝率を推定します。</p>
+     <div class="field"><label>デッキ A</label><select id="bA">${curOpt}${optsFrom(saved)}</select></div>
+     <div class="field"><label>デッキ B（対戦相手）</label><select id="bB">${optsFrom(saved)}${curOpt}</select></div>
+     <div class="field"><label>試行回数</label><select id="bN"><option value="200">200戦</option><option value="500" selected>500戦</option><option value="2000">2000戦</option></select></div>
+     <div class="row"><button class="btn primary" id="bRun">対戦させる</button><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>
+     <div id="bResult"></div>
+   </div>`);
+  const getDeck=(v)=> v==='cur'?deckObj():getSaved()[Number(v)];
+  // mode toggle
+  $('#bMode').onchange=()=>{
+    const ai=$('#bMode').value==='ai';
+    $('#bModeAI').style.display=ai?'':'none';
+    $('#bModeSim').style.display=ai?'none':'';
+  };
+  // 既定でBを別デッキに
+  if(saved.length && curValid){ $('#bB').value='0'; $('#bAI_B').value='0'; }
+  // AI battle start
+  $('#bStartAI').onclick=()=>{
+    const dA=getDeck($('#bAI_A').value), dB=getDeck($('#bAI_B').value);
+    if(!dA||!dB){toast('デッキを選択してください');return;}
+    closeDlg();
+    startInteractiveBattle(dA,dB);
+  };
+  $('#bRun').onclick=()=>{
+    const dA=getDeck($('#bA').value), dB=getDeck($('#bB').value);
+    if(!dA||!dB){toast('デッキを選択してください');return;}
+    if(JSON.stringify(dA)===JSON.stringify(dB)){toast('同じデッキ同士です（別のデッキを選んでください）');}
+    const R=runBattle(dA,dB,Number($('#bN').value));
+    const pa=Math.round(R.wa/R.games*100), pb=100-pa;
+    const statRow=(lab,a,b,fmt=x=>x)=>`<div class="stat"><span>${lab}</span><span>${fmt(a)}</span></div>`;
+    const card=(D,cls)=>`<div class="vscard ${cls}"><h4>${cls==='a'?'🟦':'🟪'} ${esc(D.name)}</h4>
+       <div class="oshi">推し: ${esc(D.oshiName)}・LIFE ${D.life}</div>
+       ${statRow('Debut火力', Math.round(D.lvlAtk.Debut))}
+       ${statRow('1st火力', Math.round(D.lvlAtk['1st']))}
+       ${statRow('2nd火力', Math.round(D.lvlAtk['2nd']))}
+       ${statRow('平均HP(1st)', Math.round(D.lvlHP['1st']))}
+       ${statRow('エール適合', Math.round(D.cheerFit*100)+'%')}</div>`;
+    const logHtml=R.log.map(l=>`<div class="${l.cls}">${esc(l.t)}</div>`).join('');
+    $('#bResult').innerHTML=`
+      <div class="vs">${card(R.A,'a')}<div class="vsmid">VS</div>${card(R.B,'b')}</div>
+      <div class="simmeta"><span>${R.games}戦の勝率</span><span>平均 ${R.avgTurn} ターン</span></div>
+      <div class="winbar"><div class="wa" style="flex:${Math.max(pa,6)}">${esc(R.A.name)} ${pa}%</div><div class="wb" style="flex:${Math.max(pb,6)}">${pb}% ${esc(R.B.name)}</div></div>
+      <div class="mini-note">サンプル対戦ログ（1戦）:</div>
+      <div class="battlelog">${logHtml}</div>`;
+  };
+};
+
+/* ===================== interactive battle ===================== */
+let _battleDriver = null;
+let _pendingDecision = null;
+
+function colorDot(col) {
+  return `<span class="cdot" style="background:${COLORVAR[col]||'var(--c-none)'}"></span>`;
+}
+
+function renderSlot(h, selectable, onClick) {
+  if (!h) { const d = el('div','bv-slot'); d.innerHTML='<div class="bv-slot-empty"></div>'; return d; }
+  const hp = h.hp || 1, dmg = h.dmg || 0, cur = Math.max(0, hp - dmg), pct = Math.round(cur / hp * 100);
+  const cls = pct > 50 ? '' : pct > 20 ? ' warn' : ' crit';
+  const d = el('div', 'bv-slot' + (selectable ? ' selectable' : ''));
+  if (h.id != null) d.dataset.holoId = h.id;
+  d.innerHTML = `${h.img ? `<img class="card-thumb" src="${h.img}" alt="${esc(h.nm)}" loading="lazy">` : `<div class="card-thumb" style="background:var(--bg3);display:grid;place-items:center;font-size:9px">${esc(h.nm)}</div>`}
+    <div class="hp-bar"><div class="hp-fill${cls}" style="width:${pct}%"></div></div>
+    <div class="cheer-dots">${(h.cheer||[]).map(colorDot).join('')}</div>
+    <span class="slot-label">${esc(h.nm)}</span>
+    ${dmg ? `<span class="dmg-text">-${dmg}</span>` : ''}
+    ${h.buffArt ? `<span class="buff-text">+${h.buffArt}</span>` : ''}`;
+  if (onClick) d.onclick = () => onClick(h);
+  attachPopupEvents(d, h.n, h);
+  return d;
+}
+
+function renderNameBar(p, isOp) {
+  const pipHtml = Array.from({length: p.oshi.lf || 0}, (_, i) =>
+    `<span class="pip${i >= p.life ? ' lost' : ''}"></span>`).join('');
+  return `<span class="name">${isOp ? '🟪 ' : '🟦 '}${esc(p.name)}</span>
+    <span class="life-pips">${pipHtml}</span>`;
+}
+
+function renderZoneStack(count, cls) {
+  if (count <= 0) {
+    return `<div class="zone-stack-wrap ${cls} empty"><div class="zs-card zs-c0"></div></div>`;
+  }
+  const n = Math.min(count, 3);
+  let cards = '';
+  for (let i = n - 1; i >= 0; i--) {
+    cards += `<div class="zs-card zs-c${i}"><div class="zs-diamond"></div></div>`;
+  }
+  return `<div class="zone-stack-wrap ${cls}">${cards}<span class="zs-badge">${count}</span></div>`;
+}
+
+function renderZoneLeft(p) {
+  return `${renderZoneStack(p.life, 'life')}
+    <div class="zone-label">ライフ</div>
+    ${renderZoneStack(p.cheerDeckCount, 'cheer-pile')}
+    <div class="zone-label">エール</div>`;
+}
+
+function renderZoneRight(p) {
+  return `${renderZoneStack(p.holoPowerCount, 'hp-zone')}
+    <div class="zone-label">ホロパワー</div>
+    ${renderZoneStack(p.deckCount, 'deck-zone')}
+    <div class="zone-label">デッキ</div>
+    ${renderZoneStack(p.archiveCount, 'archive-zone')}
+    <div class="zone-label">アーカイブ</div>`;
+}
+
+function renderOshiSlot(oshi) {
+  const d = el('div', 'bv-slot oshi-slot');
+  d.innerHTML = `${oshi.img ? `<img class="card-thumb" src="${oshi.img}" alt="${esc(oshi.nm)}" loading="lazy">` : `<div class="card-thumb" style="background:var(--bg3);display:grid;place-items:center;font-size:8px">${esc(oshi.nm)}</div>`}
+    <span class="slot-label">${esc(oshi.nm)}</span>`;
+  attachPopupEvents(d, oshi.n, null);
+  return d;
+}
+
+function renderFrontRow(container, p, isMe, selectableIds, onSelect) {
+  container.innerHTML = '';
+  const isSelectable = (h) => h && selectableIds && selectableIds.has(h.id);
+  const collabSlot = p.collab ? renderSlot(p.collab, isSelectable(p.collab), isSelectable(p.collab) ? onSelect : null) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">コラボ</div>'; return e; })();
+  const centerSlot = p.center ? renderSlot(p.center, isSelectable(p.center), isSelectable(p.center) ? onSelect : null) : (() => { const e = el('div','bv-slot'); e.innerHTML = '<div class="bv-slot-empty">センター</div>'; return e; })();
+  const oshiSlot = renderOshiSlot(p.oshi);
+  if (isMe) {
+    container.appendChild(collabSlot);
+    container.appendChild(centerSlot);
+    container.appendChild(oshiSlot);
+  } else {
+    container.appendChild(oshiSlot);
+    container.appendChild(centerSlot);
+    container.appendChild(collabSlot);
+  }
+}
+
+function renderBattleState(snap, meKey) {
+  const me = snap[meKey], op = snap[meKey === 'A' ? 'B' : 'A'];
+  const phaseMap = {reset:'リセット',draw:'手札',cheer:'エール',main:'メイン',art:'パフォーマンス'};
+  $('#bvTurn').textContent = `ターン ${snap.turn || 0}`;
+  $('#bvPhase').textContent = snap.phase ? `[${phaseMap[snap.phase] || snap.phase}ステップ]` : '';
+
+  // Determine which field cards are selectable from _pendingDecision
+  let selectableIds = null, onFieldSelect = null;
+  let handSelectMode = null; // 'single' | 'multi'
+  let handCandidateNames = null;
+  const pd = _pendingDecision;
+  if (pd) {
+    const fieldTypes = ['cheerTarget','lifeCheerTarget','promoteCenter','supportTarget'];
+    if (fieldTypes.includes(pd.type)) {
+      selectableIds = new Set(pd.candidates.map(h => h.id));
+      onFieldSelect = (h) => {
+        _pendingDecision = null;
+        const acts = $('#bvActions'); acts.style.display = 'none';
+        document.querySelectorAll('.bv-slot.selectable').forEach(s => s.classList.remove('selectable'));
+        document.querySelectorAll('.bv-field-prompt').forEach(e => e.remove());
+        pd.driver.submitChoice(h.id);
+      };
+    }
+    if (pd.type === 'setupCenter') {
+      handSelectMode = 'single';
+      handCandidateNames = new Set(pd.candidates.map(c => c.n));
+    }
+    if (pd.type === 'setupBack') {
+      handSelectMode = 'multi';
+      handCandidateNames = new Set(pd.candidates.map(c => c.n));
+    }
+  }
+
+  // Opponent half
+  $('#bvOpInfo').innerHTML = renderNameBar(op, true);
+  $('#bvOpLeft').innerHTML = renderZoneLeft(op);
+  $('#bvOpRight').innerHTML = renderZoneRight(op);
+  renderFrontRow($('#bvOpFront'), op, false, null, null);
+  const opBack = $('#bvOpBack'); opBack.innerHTML = '';
+  op.back.forEach(h => { if (h) opBack.appendChild(renderSlot(h, false)); });
+
+  // My half
+  $('#bvMeInfo').innerHTML = renderNameBar(me, false);
+  $('#bvMeLeft').innerHTML = renderZoneLeft(me);
+  $('#bvMeRight').innerHTML = renderZoneRight(me);
+  renderFrontRow($('#bvMeFront'), me, true, selectableIds, onFieldSelect);
+  const meBack = $('#bvMeBack'); meBack.innerHTML = '';
+  me.back.forEach(h => {
+    if (!h) return;
+    const isSel = selectableIds && selectableIds.has(h.id);
+    meBack.appendChild(renderSlot(h, isSel, isSel ? onFieldSelect : null));
+  });
+
+  // Field prompt overlay for field-card selection
+  document.querySelectorAll('.bv-field-prompt').forEach(e => e.remove());
+  if (selectableIds && pd) {
+    const prompt = el('div','bv-field-prompt', pd.prompt || '対象を選択');
+    $('#bvMeFront').parentElement.style.position = 'relative';
+    $('#bvMeFront').parentElement.appendChild(prompt);
+  }
+
+  // Hand
+  const hand = $('#bvHand'); hand.innerHTML = '';
+  const setupBackSelected = pd && pd.type === 'setupBack' ? (pd._selected || (pd._selected = [])) : null;
+  if (Array.isArray(me.hand)) {
+    me.hand.forEach(c => {
+      const img = el('img','hand-card');
+      img.src = c.img || '';
+      img.alt = c.nm;
+      img.title = `${c.nm}（${c.bl || c.t}）`;
+      img.loading = 'lazy';
+      const isCandidate = handCandidateNames && handCandidateNames.has(c.n);
+      if (isCandidate) img.classList.add('selectable');
+      if (setupBackSelected && setupBackSelected.includes(c.n)) {
+        img.classList.add('selected');
+        img.classList.remove('selectable');
+      }
+      if (isCandidate && handSelectMode === 'single') {
+        img.onclick = (e) => {
+          e.stopPropagation();
+          _pendingDecision = null;
+          const acts = $('#bvActions'); acts.style.display = 'none';
+          document.querySelectorAll('.hand-card.selectable').forEach(s => s.classList.remove('selectable'));
+          pd.driver.submitChoice(c.n);
+        };
+      } else if (isCandidate && handSelectMode === 'multi') {
+        img.onclick = (e) => {
+          e.stopPropagation();
+          const idx = setupBackSelected.indexOf(c.n);
+          if (idx >= 0) { setupBackSelected.splice(idx, 1); }
+          else if (setupBackSelected.length < 3) { setupBackSelected.push(c.n); }
+          if (pd._updateConfirm) pd._updateConfirm();
+          // Re-render to update visual state
+          renderBattleState(snap, meKey);
+        };
+      }
+      attachPopupEvents(img, c.n, null);
+      hand.appendChild(img);
+    });
+  }
+
+  // Log
+  const logEl = $('#bvLog');
+  const lines = snap.log.slice(-30);
+  logEl.innerHTML = lines.map(l => `<div class="log-line ${l.cls||''}">${esc(l.t)}</div>`).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function showDecision(decision, driver, meKey) {
+  const acts = $('#bvActions');
+  acts.style.display = '';
+  acts.innerHTML = '';
+  const prompt = el('div','prompt',esc(decision.prompt || '選択してください'));
+  acts.appendChild(prompt);
+  const list = el('div','act-list');
+  acts.appendChild(list);
+
+  const submit = (choice) => {
+    _pendingDecision = null;
+    acts.style.display = 'none';
+    document.querySelectorAll('.bv-slot.selectable').forEach(s => s.classList.remove('selectable'));
+    document.querySelectorAll('.hand-card.selectable,.hand-card.selected').forEach(s => {
+      s.classList.remove('selectable','selected');
+    });
+    document.querySelectorAll('.bv-field-prompt').forEach(e => e.remove());
+    driver.submitChoice(choice);
+  };
+
+  // Card-selection types: use direct tap on field/hand cards
+  const fieldSelectTypes = ['cheerTarget','lifeCheerTarget','promoteCenter','supportTarget'];
+  const handSelectTypes = ['setupCenter','setupBack'];
+
+  if (fieldSelectTypes.includes(decision.type)) {
+    // Store pending decision and re-render so cards become selectable
+    _pendingDecision = { type: decision.type, candidates: decision.candidates, driver, prompt: decision.prompt };
+    prompt.textContent = (decision.prompt || '対象を選択') + '（カードをタップ）';
+    const snap = HoloEngine.snapshot(driver.game);
+    renderBattleState(snap, meKey);
+    return;
+  }
+
+  if (handSelectTypes.includes(decision.type)) {
+    _pendingDecision = { type: decision.type, candidates: decision.candidates, driver, prompt: decision.prompt };
+    if (decision.type === 'setupCenter') {
+      prompt.textContent = (decision.prompt || 'センターを選択') + '（手札をタップ）';
+    } else {
+      prompt.textContent = (decision.prompt || 'バックを選択') + '（手札をタップして選択）';
+      const confirmBtn = el('button','act-btn','決定（0枚）');
+      confirmBtn.className += ' done-btn';
+      confirmBtn.onclick = () => submit(_pendingDecision._selected || []);
+      list.appendChild(confirmBtn);
+      // Update confirm button text when selection changes
+      _pendingDecision._updateConfirm = () => {
+        const sel = _pendingDecision._selected || [];
+        confirmBtn.textContent = sel.length ? `決定（${sel.length}枚）` : 'スキップ';
+        confirmBtn.className = 'act-btn done-btn' + (sel.length ? '' : ' end');
+      };
+    }
+    const snap = HoloEngine.snapshot(driver.game);
+    renderBattleState(snap, meKey);
+    return;
+  }
+
+  // Button-based types: mulligan, mainAction, artChoice
+  switch (decision.type) {
+    case 'mulligan': {
+      const snap = HoloEngine.snapshot(driver.game);
+      const meSnap = snap[meKey];
+      const handCards = meSnap.hand || [];
+      const handDiv = el('div','mulligan-hand');
+      handDiv.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';
+      handCards.forEach(c => {
+        const img = document.createElement('img');
+        img.src = c.img || '';
+        img.alt = c.nm || c.n;
+        img.style.cssText = 'width:60px;border-radius:4px;border:1px solid #555';
+        const wrap = el('div','');
+        wrap.appendChild(img);
+        const label = el('div','',esc(c.nm||c.n));
+        label.style.cssText = 'font-size:10px;text-align:center;max-width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+        wrap.appendChild(label);
+        handDiv.appendChild(wrap);
+      });
+      list.appendChild(handDiv);
+      const yesBtn = el('button','act-btn end','引き直す');
+      yesBtn.onclick = () => submit('yes');
+      list.appendChild(yesBtn);
+      const noBtn = el('button','act-btn','このまま進める');
+      noBtn.onclick = () => submit('no');
+      list.appendChild(noBtn);
+      break;
+    }
+    case 'mainAction': {
+      decision.actions.forEach(a => {
+        const lbl = a.label || a.act;
+        const btn = el('button','act-btn' + (a.act === 'endMain' ? ' end' : ''), esc(lbl));
+        btn.onclick = () => submit(a);
+        list.appendChild(btn);
+      });
+      break;
+    }
+    case 'artChoice': {
+      decision.arts.forEach(a => {
+        let costStr = '';
+        if (a.cost && typeof a.cost === 'object' && !Array.isArray(a.cost)) {
+          const parts = [];
+          if (a.cost.colors) Object.entries(a.cost.colors).forEach(([c, n]) => { for (let i = 0; i < n; i++) parts.push(c); });
+          const specified = parts.length;
+          if (a.cost.total > specified) { for (let i = 0; i < a.cost.total - specified; i++) parts.push('◇'); }
+          costStr = parts.join('') || (a.cost.any ? '◇'.repeat(a.cost.any) : '0');
+        } else if (Array.isArray(a.cost)) {
+          costStr = a.cost.map(c => c.join ? c.join('') : c).join('');
+        }
+        const btn = el('button','act-btn',`⚔ アーツ${a.idx+1}（威力${a.power}／コスト${costStr}）`);
+        btn.onclick = () => submit(a.idx);
+        list.appendChild(btn);
+      });
+      const skipBtn = el('button','act-btn end','パス（攻撃しない）');
+      skipBtn.onclick = () => submit('skip');
+      list.appendChild(skipBtn);
+      break;
+    }
+    case 'deckSearch': {
+      const info = el('div','', `🔍 山札サーチ: ${decision.count}枚選択`);
+      info.style.cssText = 'margin-bottom:8px;font-weight:bold;color:#ffca28';
+      list.appendChild(info);
+      const cardGrid = el('div','');
+      cardGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px';
+      decision.candidates.forEach(c => {
+        const card = el('div','');
+        card.style.cssText = 'cursor:pointer;border:2px solid #555;border-radius:6px;padding:6px;text-align:center;min-width:70px;background:rgba(0,0,0,0.3);transition:border-color 0.2s';
+        const typeLabel = c.t === 'holomen' ? `${c.bl || 'Debut'}` : (c.t === 'support' ? 'サポート' : c.t);
+        card.innerHTML = `<div style="font-size:12px;font-weight:bold">${esc(c.nm)}</div><div style="font-size:10px;color:#aaa">${esc(typeLabel)}</div>`;
+        card.onmouseenter = () => { card.style.borderColor = '#ffca28'; };
+        card.onmouseleave = () => { card.style.borderColor = '#555'; };
+        card.onclick = () => submit(c.idx);
+        cardGrid.appendChild(card);
+      });
+      list.appendChild(cardGrid);
+      break;
+    }
+    case 'revealChoice': {
+      const info = el('div','', `📖 公開カードから${decision.count}枚選択`);
+      info.style.cssText = 'margin-bottom:8px;font-weight:bold;color:#4fc3f7';
+      list.appendChild(info);
+      const cardGrid = el('div','');
+      cardGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px';
+      decision.candidates.forEach(c => {
+        const card = el('div','');
+        card.style.cssText = 'cursor:pointer;border:2px solid #555;border-radius:6px;padding:6px;text-align:center;min-width:70px;background:rgba(0,0,0,0.3);transition:border-color 0.2s';
+        const typeLabel = c.t === 'holomen' ? `${c.bl || 'Debut'}` : (c.t === 'support' ? 'サポート' : c.t);
+        card.innerHTML = `<div style="font-size:12px;font-weight:bold">${esc(c.nm)}</div><div style="font-size:10px;color:#aaa">${esc(typeLabel)}</div>`;
+        card.onmouseenter = () => { card.style.borderColor = '#4fc3f7'; };
+        card.onmouseleave = () => { card.style.borderColor = '#555'; };
+        card.onclick = () => submit(c.idx);
+        cardGrid.appendChild(card);
+      });
+      list.appendChild(cardGrid);
+      break;
+    }
+  }
+}
+
+function showBattleResult(result, meKey) {
+  const field = $('#bvField');
+  const overlay = el('div','bv-result');
+  const won = result.winner === meKey;
+  overlay.innerHTML = `
+    <h2 class="${won ? 'win-a' : 'win-b'}">${won ? '🎉 勝利！' : '😢 敗北…'}</h2>
+    <div class="detail">${result.turns}ターン・${esc(result.reason || '')}</div>
+    <button class="btn primary" id="bvClose">閉じる</button>`;
+  field.appendChild(overlay);
+  overlay.querySelector('#bvClose').onclick = () => closeBattle();
+}
+
+function closeBattle() {
+  if (_battleDriver) { _battleDriver.stop(); _battleDriver = null; }
+  $('#battleView').classList.remove('open');
+  const res = $('#bvField').querySelector('.bv-result');
+  if (res) res.remove();
+  $('#bvActions').style.display = 'none';
+}
+
+/* --- battle animations --- */
+function findSlotByHoloId(id) {
+  const slots = document.querySelectorAll('.bv-slot[data-holo-id]');
+  for (const s of slots) if (s.dataset.holoId === String(id)) return s;
+  return null;
+}
+function animateSlot(id, cls, duration) {
+  const slot = findSlotByHoloId(id);
+  if (!slot) return;
+  slot.classList.add(cls);
+  setTimeout(() => slot.classList.remove(cls), duration || 600);
+}
+function showDmgPopup(id, dmg) {
+  const slot = findSlotByHoloId(id);
+  if (!slot) return;
+  const pop = el('div','bv-dmg-popup', `-${dmg}`);
+  slot.style.position = 'relative';
+  slot.appendChild(pop);
+  setTimeout(() => pop.remove(), 1200);
+}
+function showEventToast(text, duration) {
+  const field = $('#bvField');
+  const toast = el('div','bv-event-toast', text);
+  field.style.position = 'relative';
+  field.appendChild(toast);
+  setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 300); }, duration || 1200);
+}
+function handleBattleEvent(d, meKey) {
+  if (!d || !d.event) return;
+  switch (d.event) {
+    case 'artHit':
+      animateSlot(d.attacker, 'anim-attack', 500);
+      setTimeout(() => {
+        animateSlot(d.target, 'anim-damage', 600);
+        showDmgPopup(d.target, d.dmg);
+      }, 200);
+      showEventToast(`⚔ ${d.attackerName} → ${d.targetName}  ${d.dmg}ダメージ`, 1500);
+      break;
+    case 'bloom':
+      animateSlot(d.holoId, 'anim-bloom', 700);
+      showEventToast(`🌸 ${d.name} にブルーム！`, 1200);
+      break;
+    case 'collab':
+      animateSlot(d.holoId, 'anim-collab', 500);
+      showEventToast(`🤝 ${d.name} コラボ！`, 1000);
+      break;
+    case 'downed':
+      showEventToast(`💥 ${d.msg}`, 1500);
+      break;
+    case 'supportUsed':
+      showEventToast(`📜 ${d.name} 発動！`, 1000);
+      break;
+    case 'turnStart':
+      showEventToast(`ターン ${d.turn}`, 800);
+      break;
+  }
+}
+
+function startInteractiveBattle(deckA, deckB) {
+  const meKey = 'A';
+  const game = HoloEngine.createInteractiveGame(deckA, deckB, ENGINE_DB);
+  const bv = $('#battleView');
+  bv.classList.add('open');
+  $('#bvTurn').textContent = '対戦準備中';
+  $('#bvPhase').textContent = '';
+  $('#bvActions').style.display = 'none';
+  $('#bvLog').innerHTML = '';
+  $('#bvHand').innerHTML = '';
+  $('#bvOpInfo').innerHTML = '';
+  $('#bvOpLeft').innerHTML = '';
+  $('#bvOpFront').innerHTML = '';
+  $('#bvOpBack').innerHTML = '';
+  $('#bvOpRight').innerHTML = '';
+  $('#bvMeInfo').innerHTML = '';
+  $('#bvMeLeft').innerHTML = '';
+  $('#bvMeFront').innerHTML = '';
+  $('#bvMeBack').innerHTML = '';
+  $('#bvMeRight').innerHTML = '';
+  const res = $('#bvField').querySelector('.bv-result');
+  if (res) res.remove();
+
+  const driver = new HoloEngine.BattleDriver(game, meKey, {
+    aiDelay: 600,
+    onState: (snap) => renderBattleState(snap, meKey),
+    onDecision: (d) => showDecision(d, driver, meKey),
+    onEnd: (result) => showBattleResult(result, meKey),
+    onLog: (d) => handleBattleEvent(d, meKey),
+  });
+  _battleDriver = driver;
+  driver.run(60);
+}
+
+$('#bvQuit').onclick = () => closeBattle();
+
+/* ===================== card popup (battle view) ===================== */
+const _popup = $('#cardPopup');
+const _popupImg = $('#cpImg');
+const _popupBody = $('#cpBody');
+let _popupTimer = null;
+
+function buildPopupHTML(cardNum, holo) {
+  const c = BYNUM.get(cardNum);
+  if (!c) return '';
+  const tx = c.tx || {};
+  let html = `<div class="cp-name">${esc(c.nm)}</div>`;
+  html += `<div class="cp-meta">`;
+  html += `<span>${c.n}</span>`;
+  if (c.bl) html += `<span>${c.bl}</span>`;
+  if (c.t === 'oshi') html += `<span>推しホロメン</span>`;
+  else if (c.t === 'support') html += `<span>サポート${c.st ? '・'+c.st : ''}</span>`;
+  else if (c.t === 'holomen') html += `<span>ホロメン</span>`;
+  if (c.c && c.c.length) html += `<span>${c.c.join('/')}</span>`;
+  if (c.bt) html += `<span>バトン${c.bt}</span>`;
+  html += `</div>`;
+  if (holo || c.hp) {
+    html += `<div class="cp-stats">`;
+    if (c.hp) html += `<span class="hp">HP ${c.hp}</span>`;
+    if (holo && holo.dmg) html += `<span class="dmg">ダメージ ${holo.dmg}</span>`;
+    if (holo && holo.cheer) html += `<span class="cheer">エール ${holo.cheer.length}枚</span>`;
+    if (c.lf) html += `<span>LIFE ${c.lf}</span>`;
+    html += `</div>`;
+  }
+  let txHtml = '';
+  const addTx = (lab, val) => { if (val) txHtml += `<span class="cp-label">${lab}</span>${esc(val)}\n`; };
+  addTx('推しスキル', tx.o);
+  addTx('SP推しスキル', tx.s);
+  if (tx.k) tx.k.forEach(k => addTx('キーワード', k));
+  if (tx.a) tx.a.forEach(a => addTx('アーツ', a));
+  addTx('能力テキスト', tx.b);
+  if (txHtml) html += `<div class="cp-text">${txHtml}</div>`;
+  if (holo && holo.attachments && holo.attachments.length) {
+    html += `<div class="cp-attach">`;
+    holo.attachments.forEach(att => {
+      const ac = BYNUM.get(att.n);
+      html += `<span class="att-name">📎 ${esc(att.nm || (ac && ac.nm) || att.n)}</span> `;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
+function showCardPopup(cardNum, holo, anchorEl) {
+  const c = BYNUM.get(cardNum);
+  if (!c) return;
+  _popupImg.src = c.img || '';
+  _popupImg.alt = c.nm;
+  _popupImg.style.display = c.img ? '' : 'none';
+  _popupBody.innerHTML = buildPopupHTML(cardNum, holo);
+  _popup.classList.add('on');
+  requestAnimationFrame(() => positionPopup(anchorEl));
+}
+
+function positionPopup(anchor) {
+  const r = anchor.getBoundingClientRect();
+  const pw = _popup.offsetWidth, ph = _popup.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = r.right + 8;
+  if (left + pw > vw) left = r.left - pw - 8;
+  if (left < 4) left = 4;
+  let top = r.top;
+  if (top + ph > vh) top = vh - ph - 4;
+  if (top < 4) top = 4;
+  _popup.style.left = left + 'px';
+  _popup.style.top = top + 'px';
+}
+
+function hideCardPopup() {
+  clearTimeout(_popupTimer);
+  _popupTimer = null;
+  _popup.classList.remove('on');
+}
+
+function attachPopupEvents(el, cardNum, holo) {
+  el.addEventListener('mouseenter', () => {
+    clearTimeout(_popupTimer);
+    _popupTimer = setTimeout(() => showCardPopup(cardNum, holo, el), 350);
+  });
+  el.addEventListener('mouseleave', () => hideCardPopup());
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    clearTimeout(_popupTimer);
+    showCardPopup(cardNum, holo, el);
+    const dismiss = () => { hideCardPopup(); document.removeEventListener('click', dismiss); };
+    setTimeout(() => document.addEventListener('click', dismiss), 50);
+  });
+  el.addEventListener('touchstart', (e) => {
+    _popupTimer = setTimeout(() => {
+      e.preventDefault();
+      showCardPopup(cardNum, holo, el);
+      const dismiss = () => { hideCardPopup(); document.removeEventListener('touchstart', dismiss); };
+      setTimeout(() => document.addEventListener('touchstart', dismiss), 50);
+    }, 400);
+  }, {passive: false});
+  el.addEventListener('touchend', () => { if (_popupTimer) { clearTimeout(_popupTimer); _popupTimer = null; } });
+}
+
+/* ===================== mobile nav ===================== */
+const isMobile=()=>window.innerWidth<=1024;
+function switchView(view){
+  const wrap=$('.wrap');
+  const nav=$('#bottomNav');
+  [...nav.children].forEach(b=>b.classList.toggle('on',b.dataset.view===view));
+  if(view==='pool'){
+    wrap.classList.remove('show-deck');
+  } else if(view==='deck'){
+    wrap.classList.add('show-deck');
+    renderDeck();
+  } else if(view==='battle'){
+    wrap.classList.remove('show-deck');
+    $('#btnBattle').click();
+  } else if(view==='more'){
+    wrap.classList.remove('show-deck');
+    openDlg(`<h3>メニュー</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin:8px 0">
+        <button class="btn" onclick="closeDlg();$('#btnSaved').click()">💾 保存デッキ</button>
+        <button class="btn" onclick="closeDlg();$('#btnShare').click()">🔗 共有</button>
+        <button class="btn" onclick="closeDlg();$('#btnExport').click()">⬇ 書き出し</button>
+        <button class="btn" onclick="closeDlg();$('#btnAuto').click()">⚡ 自動構築</button>
+        <button class="btn" onclick="closeDlg();$('#btnClear').click()">クリア</button>
+      </div>
+      <div class="row"><button class="btn ghost" onclick="closeDlg()">閉じる</button></div>`);
+  }
+}
+$('#bottomNav').addEventListener('click',(e)=>{
+  const btn=e.target.closest('button[data-view]');
+  if(btn) switchView(btn.dataset.view);
+});
+function updateDeckBadge(){
+  const b=$('#deckBadge');
+  if(!b)return;
+  const n=sum(state.main)+sum(state.cheer)+(state.oshi?1:0);
+  b.textContent=n>0?` (${n})`:'';
+}
+const origAfterChange=afterChange;
+
+/* long-press on card to open modal (mobile) */
+let lpTimer=null;
+$('#grid').addEventListener('touchstart',(e)=>{
+  const card=e.target.closest('.card');
+  if(!card) return;
+  lpTimer=setTimeout(()=>{
+    lpTimer=null;
+    const c=BYNUM.get(card.dataset.n);
+    if(c) openModal(c);
+  },400);
+},{passive:true});
+$('#grid').addEventListener('touchend',()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null;}},{passive:true});
+$('#grid').addEventListener('touchmove',()=>{if(lpTimer){clearTimeout(lpTimer);lpTimer=null;}},{passive:true});
+
+/* ===================== init ===================== */
+$('#metaline').textContent=`hololive OFFICIAL CARD GAME · 全${CARDS.length}種収録`;
+buildFilters();
+const hash=location.hash.slice(1);
+if(hash){const o=decodeDeck(hash);if(o)loadDeck(o);}
+renderPool();renderDeck();updateCounts();updateValidation();
+</script>
+</body>
+</html>

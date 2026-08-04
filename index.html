@@ -5248,6 +5248,95 @@ header{
     return true;
   }
 
+  /* --- Interactive (generator) versions for search/reveal player choice --- */
+  function* runActionsInteractive(actions, ctx) {
+    if (!actions) return;
+    for (const a of actions) yield* runActionInteractive(a, ctx);
+  }
+  function* runActionInteractive(a, ctx) {
+    const { game, me, op, rnd } = ctx;
+    switch (a.op) {
+      case 'search': {
+        const n = Math.min(a.n || 1, me.deck.length);
+        const match = me.deck.filter((c) => matchesFilter(c, a.filter));
+        if (!match.length) break;
+        if (n === 1 && match.length === 1) {
+          // Only one option — auto-select
+          me.hand.push(match[0]); me.deck.splice(me.deck.indexOf(match[0]), 1);
+          shuffle(me.deck, rnd);
+          game.push('', `${me.name}: デッキから${match[0].nm}をサーチ`);
+        } else {
+          // Yield decision for player to pick
+          const candidates = match.slice(0, 10).map((c, i) => ({ idx: i, card: c }));
+          const picks = [];
+          for (let i = 0; i < n && candidates.length; i++) {
+            const remaining = candidates.filter((c) => !picks.includes(c.idx));
+            if (!remaining.length) break;
+            const choice = yield { type: 'deckSearch', player: me === game.A ? 'A' : 'B', candidates: remaining.map((c) => ({ idx: c.idx, nm: c.card.nm, t: c.card.t, bl: c.card.bl })), count: n - i, prompt: `山札から${n - i}枚選択してください` };
+            if (choice != null && choice >= 0 && choice < candidates.length) {
+              picks.push(choice);
+            } else if (remaining.length) {
+              picks.push(remaining[0].idx);
+            }
+          }
+          picks.forEach((pi) => {
+            const c = candidates[pi].card;
+            me.hand.push(c); me.deck.splice(me.deck.indexOf(c), 1);
+          });
+          if (picks.length) { shuffle(me.deck, rnd); game.push('', `${me.name}: デッキから${picks.length}枚サーチ`); }
+        }
+        break;
+      }
+      case 'reveal': {
+        const n = Math.min(a.n, me.deck.length);
+        const seen = me.deck.splice(0, n);
+        const match = seen.filter((c) => matchesFilter(c, a.filter));
+        if (match.length <= (a.keep || 1)) {
+          // Auto-select all matching
+          const take = match.slice(0, a.keep || 1);
+          take.forEach((c) => me.hand.push(c));
+          const rest = seen.filter((c) => !take.includes(c));
+          me.deck = rest.concat(me.deck);
+          if (take.length) game.push('', `${me.name}: 効果でカードを${take.length}枚手札に加えた`);
+        } else {
+          // Let player choose which to keep
+          const candidates = match.map((c, i) => ({ idx: i, nm: c.nm, t: c.t, bl: c.bl }));
+          const picks = [];
+          const keep = a.keep || 1;
+          for (let i = 0; i < keep && candidates.length; i++) {
+            const remaining = candidates.filter((c) => !picks.includes(c.idx));
+            if (!remaining.length) break;
+            const choice = yield { type: 'revealChoice', player: me === game.A ? 'A' : 'B', candidates: remaining, count: keep - i, prompt: `公開されたカードから${keep - i}枚選択` };
+            if (choice != null && choice >= 0 && choice < candidates.length) {
+              picks.push(choice);
+            } else if (remaining.length) {
+              picks.push(remaining[0].idx);
+            }
+          }
+          const take = picks.map((pi) => match[pi]);
+          take.forEach((c) => me.hand.push(c));
+          const rest = seen.filter((c) => !take.includes(c));
+          me.deck = rest.concat(me.deck);
+          if (take.length) game.push('', `${me.name}: 効果でカードを${take.length}枚手札に加えた`);
+        }
+        break;
+      }
+      default:
+        // For all other ops, delegate to the non-interactive version
+        runAction(a, ctx);
+        break;
+    }
+  }
+  function* tryRunAbilityInteractive(game, me, op, ability, key, self, rnd) {
+    if (!ability) return false;
+    if (!canUse(me, key, ability.once)) return false;
+    const ctx = { game, me, op, self, rnd };
+    if (!checkCondition(ability.condition, ctx)) return false;
+    markUsed(me, key, ability.once);
+    yield* runActionsInteractive(ability.do, ctx);
+    return true;
+  }
+
   /* ---------- game ---------- */
   function Game(deckA, deckB, DB, opts) {
     opts = opts || {};
@@ -5441,9 +5530,10 @@ header{
   };
 
   // ---- Phase 2: play support cards from hand ----
-  Game.prototype.playSupportCards = function (p, op, turnNo) {
+  Game.prototype.playSupportCards = function (p, op, turnNo, opts) {
     if (!this.effectsOn) return;
     const rnd = this.rndFor(p);
+    const noLimited = opts && opts.noLimited;
     // Sort supports: draw/reveal first, then buffs, then others
     const supPriority = (c) => {
       const fx = fxOf(this.DB, c.n);
@@ -5463,7 +5553,7 @@ header{
       const card = p.hand[idx];
       const fx = fxOf(this.DB, card.n);
       const isLimited = !!(card.ltd);
-      if (isLimited && p.limitedUsedTurn) { break; } // no more LIMITED budget; leave rest in hand
+      if (isLimited && (p.limitedUsedTurn || noLimited)) { break; } // no LIMITED on first player's first turn
       if (!fx || !fx.ability) { break; } // no known effect: don't blindly play (avoid wasting an unknown card)
       const key = abilityKey(card.n, 'sup');
       if (!canUse(p, key, fx.ability.once || 'turn')) { p.hand.splice(idx, 1); p.hand.push(card); if (p.hand.length === 1) break; continue; }
@@ -5504,8 +5594,11 @@ header{
     return { hp, artBonus, costReduce };
   };
 
-  Game.prototype.mainPhase = function (p, turnNo, op) {
+  Game.prototype.mainPhase = function (p, turnNo, op, opts) {
+    const noBloom = opts && opts.noBloom;
+    const noLimited = opts && opts.noLimited;
     const tryBloom = (holo) => {
+      if (noBloom) return; // Both players cannot bloom on their first turn
       if (!holo || holo.playedTurn === turnNo) return;
       const next = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
       if (!next) return;
@@ -5555,7 +5648,7 @@ header{
       if (p.back.length >= 3) break;
     }
 
-    if (this.effectsOn) this.playSupportCards(p, op, turnNo);
+    if (this.effectsOn) this.playSupportCards(p, op, turnNo, { noLimited: noLimited });
 
     if (!p.collab && !p.usedCollab && p.back.length) {
       const collabScore = (h) => {
@@ -5646,18 +5739,27 @@ header{
     if (me.lost || op.lost) return;
     this.turn++;
     const turnNo = this.turn;
-    // Reset step: return collab holomen to back stage
-    if (me.collab) { me.back.push(me.collab); me.collab = null; }
-    this.allHolos(me).forEach((h) => { h.rested = false; h.buffArt = 0; h.costReduce = 0; });
+    const isFirstPlayer = (who === this.first);
+    const isMyFirstTurn = !me._hadTurn; // first turn for this player
+    me._hadTurn = true;
+    const isFirstPlayerFirstTurn = isMyFirstTurn && isFirstPlayer;
+    const isAnyFirstTurn = isMyFirstTurn;
+    // Reset step: skipped on both players' first turn (official rules)
+    if (!isAnyFirstTurn) {
+      if (me.collab) { me.back.push(me.collab); me.collab = null; }
+      this.allHolos(me).forEach((h) => { h.rested = false; h.buffArt = 0; h.costReduce = 0; });
+    }
     me.usedCollab = false; me.usedTurn.clear(); me.limitedUsedTurn = false;
-    const isFirstEver = (turnNo === 1 && who === this.first);
-    if (!isFirstEver) this.draw(me, 1);
+    this.draw(me, 1);
     if (me.lost) return;
     this.attachCheer(me, turnNo);
-    this.mainPhase(me, turnNo, op);
-    if (me.center) this.performArt(me.center, me, op, turnNo);
-    if (op.lost) return;
-    if (me.collab) this.performArt(me.collab, me, op, turnNo);
+    this.mainPhase(me, turnNo, op, { noBloom: isAnyFirstTurn, noLimited: isFirstPlayerFirstTurn });
+    // Performance step: skipped on first player's first turn only
+    if (!isFirstPlayerFirstTurn) {
+      if (me.center) this.performArt(me.center, me, op, turnNo);
+      if (op.lost) return;
+      if (me.collab) this.performArt(me.collab, me, op, turnNo);
+    }
     if (me.collab) me.collab.rested = true;
   };
 
@@ -5731,16 +5833,20 @@ header{
     return backHolos.sort((a, b) => topArtPower(b.card, game.DB) - topArtPower(a.card, game.DB))[0];
   }
 
-  function aiGetMainActions(p, op, turnNo, game) {
+  function aiGetMainActions(p, op, turnNo, game, opts) {
     const actions = [];
     const allH = game.allHolos(p);
-    // Bloom options
-    for (const holo of allH) {
-      if (!holo || holo.playedTurn === turnNo) continue;
-      const next = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
-      if (!next) continue;
-      const idx = p.hand.findIndex((c) => c.t === 'holomen' && c.nm === holo.card.nm && c.bl === next);
-      if (idx >= 0) actions.push({ act: 'bloom', holoId: holo.id, handIdx: idx, label: `ブルーム: ${holo.card.nm} → ${next}` });
+    const noBloom = opts && opts.noBloom;
+    const noLimited = opts && opts.noLimited;
+    // Bloom options (blocked on both players' first turn)
+    if (!noBloom) {
+      for (const holo of allH) {
+        if (!holo || holo.playedTurn === turnNo) continue;
+        const next = holo.card.bl === 'Debut' ? '1st' : holo.card.bl === '1st' ? '2nd' : null;
+        if (!next) continue;
+        const idx = p.hand.findIndex((c) => c.t === 'holomen' && c.nm === holo.card.nm && c.bl === next);
+        if (idx >= 0) actions.push({ act: 'bloom', holoId: holo.id, handIdx: idx, label: `ブルーム: ${holo.card.nm} → ${next}` });
+      }
     }
     // Place Debut
     if (p.back.length + (p.collab ? 1 : 0) < 5) {
@@ -5750,13 +5856,13 @@ header{
         }
       });
     }
-    // Support cards
+    // Support cards (LIMITED blocked on first player's first turn)
     if (game.effectsOn) {
       p.hand.forEach((c, i) => {
         if (c.t !== 'support') return;
         const fx = fxOf(game.DB, c.n);
         const isLimited = !!(c.ltd);
-        if (isLimited && p.limitedUsedTurn) return;
+        if (isLimited && (p.limitedUsedTurn || noLimited)) return;
         if (!fx || !fx.ability) return;
         const key = abilityKey(c.n, 'sup');
         if (!canUse(p, key, fx.ability.once || 'turn')) return;
@@ -5869,6 +5975,14 @@ header{
       case 'supportTarget': {
         const t = pickTopAttacker(decision.candidates, game.DB);
         return t ? t.id : decision.candidates[0].id;
+      }
+      case 'deckSearch': {
+        // AI picks the first candidate
+        return decision.candidates.length ? decision.candidates[0].idx : 0;
+      }
+      case 'revealChoice': {
+        // AI picks the first candidate
+        return decision.candidates.length ? decision.candidates[0].idx : 0;
       }
       default: return null;
     }
@@ -6033,26 +6147,29 @@ header{
         if (this.effectsOn) {
           const prevFx = fxOf(this.DB, prevCard.n);
           if (prevFx && prevFx.keywords) {
-            prevFx.keywords.filter((k) => k.trigger === 'onGift').forEach((k, i) => {
-              tryRunAbility(this, p, op, k, abilityKey(prevCard.n, 'gift' + i), holo, rnd);
+            const giftKws = prevFx.keywords.filter((k) => k.trigger === 'onGift');
+            for (let i = 0; i < giftKws.length; i++) {
+              yield* tryRunAbilityInteractive(this, p, op, giftKws[i], abilityKey(prevCard.n, 'gift' + i), holo, rnd);
               this.push('', `${p.name}: ${prevCard.nm} のギフト効果`);
-            });
+            }
           }
           const fx = fxOf(this.DB, bl.n);
           if (fx && fx.keywords) {
-            fx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
-              tryRunAbility(this, p, op, k, abilityKey(bl.n, 'kwB' + i), holo, rnd);
-            });
+            const bloomKws = fx.keywords.filter((k) => k.trigger === 'onBloom');
+            for (let i = 0; i < bloomKws.length; i++) {
+              yield* tryRunAbilityInteractive(this, p, op, bloomKws[i], abilityKey(bl.n, 'kwB' + i), holo, rnd);
+            }
           }
           if (holo.attachments) {
-            holo.attachments.forEach((att) => {
+            for (const att of holo.attachments) {
               const afx = fxOf(this.DB, att.n);
               if (afx && afx.keywords) {
-                afx.keywords.filter((k) => k.trigger === 'onBloom').forEach((k, i) => {
-                  tryRunAbility(this, p, op, k, abilityKey(att.n, 'attB' + i), holo, rnd);
-                });
+                const attBloomKws = afx.keywords.filter((k) => k.trigger === 'onBloom');
+                for (let i = 0; i < attBloomKws.length; i++) {
+                  yield* tryRunAbilityInteractive(this, p, op, attBloomKws[i], abilityKey(att.n, 'attB' + i), holo, rnd);
+                }
               }
-            });
+            }
           }
         }
         break;
@@ -6092,7 +6209,7 @@ header{
           markUsed(p, key, fx.ability.once || 'turn');
           if (isLimited) p.limitedUsedTurn = true;
           const ctx = { game: this, me: p, op, self: p.center, rnd };
-          runActions(fx.ability.do, ctx);
+          yield* runActionsInteractive(fx.ability.do, ctx);
           p.archive.push(card);
           this.push('', `${p.name}: 〈${card.nm}〉を使用`);
           yield { type: 'event', event: 'supportUsed', player: who, name: card.nm };
@@ -6108,9 +6225,10 @@ header{
         if (this.effectsOn) {
           const fx = fxOf(this.DB, cand.card.n);
           if (fx && fx.keywords) {
-            fx.keywords.filter((k) => k.trigger === 'onCollab').forEach((k, i) => {
-              tryRunAbility(this, p, op, k, abilityKey(cand.card.n, 'kwC' + i), cand, rnd);
-            });
+            const collabKws = fx.keywords.filter((k) => k.trigger === 'onCollab');
+            for (let i = 0; i < collabKws.length; i++) {
+              yield* tryRunAbilityInteractive(this, p, op, collabKws[i], abilityKey(cand.card.n, 'kwC' + i), cand, rnd);
+            }
           }
         }
         break;
@@ -6120,7 +6238,7 @@ header{
         if (!fx || !fx.oshi) break;
         const cost = (fx.oshi.cost && fx.oshi.cost.holopower) || 0;
         for (let i = 0; i < cost && p.deck.length; i++) p.holoPower.push(p.deck.shift());
-        tryRunAbility(this, p, op, fx.oshi, abilityKey(p.oshiCard.n, 'oshi'), p.center, rnd);
+        yield* tryRunAbilityInteractive(this, p, op, fx.oshi, abilityKey(p.oshiCard.n, 'oshi'), p.center, rnd);
         this.push('', `${p.name}: 推しスキル「${fx.oshi.name || ''}」`);
         break;
       }
@@ -6129,7 +6247,7 @@ header{
         if (!fx || !fx.sp) break;
         const cost = (fx.sp.cost && fx.sp.cost.holopower) || 0;
         for (let i = 0; i < cost && p.deck.length; i++) p.holoPower.push(p.deck.shift());
-        tryRunAbility(this, p, op, fx.sp, abilityKey(p.oshiCard.n, 'sp'), p.center, rnd);
+        yield* tryRunAbilityInteractive(this, p, op, fx.sp, abilityKey(p.oshiCard.n, 'sp'), p.center, rnd);
         this.push('', `${p.name}: SP推しスキル「${fx.sp.name || ''}」`);
         break;
       }
@@ -6197,24 +6315,35 @@ header{
     const me = this[who], op = who === 'A' ? this.B : this.A;
     if (me.lost || op.lost) return;
     this.turn++;
+    const isFirstPlayer = (who === this.first);
+    const isMyFirstTurn = !me._hadTurn; // first turn for this player
+    me._hadTurn = true;
+    const isFirstPlayerFirstTurn = isMyFirstTurn && isFirstPlayer;
+    const isAnyFirstTurn = isMyFirstTurn;
+
+    // Reset step: skipped on both players' first turn (official rules)
     this._phase = 'reset';
-    if (me.collab) { me.back.push(me.collab); me.collab = null; }
-    this.allHolos(me).forEach((h) => { h.rested = false; h.buffArt = 0; h.costReduce = 0; });
+    if (!isAnyFirstTurn) {
+      if (me.collab) { me.back.push(me.collab); me.collab = null; }
+      this.allHolos(me).forEach((h) => { h.rested = false; h.buffArt = 0; h.costReduce = 0; });
+    }
     me.usedCollab = false; me.usedTurn.clear(); me.limitedUsedTurn = false;
 
-    const isFirstEver = (this.turn === 1 && who === this.first);
+    // Draw step: both players draw on their first turn (official rules)
     this._phase = 'draw';
-    if (!isFirstEver) { this.draw(me, 1); yield { type: 'event', event: 'draw', player: who }; }
+    this.draw(me, 1); yield { type: 'event', event: 'draw', player: who };
     if (me.lost) return;
 
+    // Cheer step: both players attach cheer on their first turn
     this._phase = 'cheer';
     yield* this.attachCheerInteractive(me);
     yield { type: 'event', event: 'cheerDone' };
 
+    // Main phase: bloom blocked on both T1, LIMITED blocked on first player T1
     this._phase = 'main';
     let mainGuard = 0;
     while (mainGuard++ < 30) {
-      const actions = aiGetMainActions(me, op, this.turn, this);
+      const actions = aiGetMainActions(me, op, this.turn, this, { noBloom: isAnyFirstTurn, noLimited: isFirstPlayerFirstTurn });
       if (!actions.length) break;
       actions.push({ act: 'endMain', label: 'メインフェイズ終了' });
       const choice = yield { type: 'mainAction', player: who, actions, prompt: 'メインフェイズ：アクションを選択' };
@@ -6223,13 +6352,16 @@ header{
       if (me.lost || op.lost) return;
     }
 
+    // Performance step: skipped on first player's first turn only
     this._phase = 'art';
-    if (me.center && !me.lost && !op.lost) {
-      yield* this.performArtInteractive(me.center, me, op);
-    }
-    if (op.lost || me.lost) return;
-    if (me.collab && !me.lost && !op.lost) {
-      yield* this.performArtInteractive(me.collab, me, op);
+    if (!isFirstPlayerFirstTurn) {
+      if (me.center && !me.lost && !op.lost) {
+        yield* this.performArtInteractive(me.center, me, op);
+      }
+      if (op.lost || me.lost) return;
+      if (me.collab && !me.lost && !op.lost) {
+        yield* this.performArtInteractive(me.collab, me, op);
+      }
     }
     if (me.collab) me.collab.rested = true;
     this._phase = '';
@@ -7370,6 +7502,44 @@ function showDecision(decision, driver, meKey) {
       const skipBtn = el('button','act-btn end','パス（攻撃しない）');
       skipBtn.onclick = () => submit('skip');
       list.appendChild(skipBtn);
+      break;
+    }
+    case 'deckSearch': {
+      const info = el('div','', `🔍 山札サーチ: ${decision.count}枚選択`);
+      info.style.cssText = 'margin-bottom:8px;font-weight:bold;color:#ffca28';
+      list.appendChild(info);
+      const cardGrid = el('div','');
+      cardGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px';
+      decision.candidates.forEach(c => {
+        const card = el('div','');
+        card.style.cssText = 'cursor:pointer;border:2px solid #555;border-radius:6px;padding:6px;text-align:center;min-width:70px;background:rgba(0,0,0,0.3);transition:border-color 0.2s';
+        const typeLabel = c.t === 'holomen' ? `${c.bl || 'Debut'}` : (c.t === 'support' ? 'サポート' : c.t);
+        card.innerHTML = `<div style="font-size:12px;font-weight:bold">${esc(c.nm)}</div><div style="font-size:10px;color:#aaa">${esc(typeLabel)}</div>`;
+        card.onmouseenter = () => { card.style.borderColor = '#ffca28'; };
+        card.onmouseleave = () => { card.style.borderColor = '#555'; };
+        card.onclick = () => submit(c.idx);
+        cardGrid.appendChild(card);
+      });
+      list.appendChild(cardGrid);
+      break;
+    }
+    case 'revealChoice': {
+      const info = el('div','', `📖 公開カードから${decision.count}枚選択`);
+      info.style.cssText = 'margin-bottom:8px;font-weight:bold;color:#4fc3f7';
+      list.appendChild(info);
+      const cardGrid = el('div','');
+      cardGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px';
+      decision.candidates.forEach(c => {
+        const card = el('div','');
+        card.style.cssText = 'cursor:pointer;border:2px solid #555;border-radius:6px;padding:6px;text-align:center;min-width:70px;background:rgba(0,0,0,0.3);transition:border-color 0.2s';
+        const typeLabel = c.t === 'holomen' ? `${c.bl || 'Debut'}` : (c.t === 'support' ? 'サポート' : c.t);
+        card.innerHTML = `<div style="font-size:12px;font-weight:bold">${esc(c.nm)}</div><div style="font-size:10px;color:#aaa">${esc(typeLabel)}</div>`;
+        card.onmouseenter = () => { card.style.borderColor = '#4fc3f7'; };
+        card.onmouseleave = () => { card.style.borderColor = '#555'; };
+        card.onclick = () => submit(c.idx);
+        cardGrid.appendChild(card);
+      });
+      list.appendChild(cardGrid);
       break;
     }
   }
