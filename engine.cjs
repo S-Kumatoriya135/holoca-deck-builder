@@ -316,18 +316,22 @@
           shuffle(me.deck, rnd);
           game.push('', `${me.name}: デッキから${match[0].nm}をサーチ`);
         } else {
-          // Yield decision for player to pick
-          const candidates = match.slice(0, 10).map((c, i) => ({ idx: i, card: c }));
+          // Yield decision for player to pick. Collapse duplicate card numbers so the
+          // picker shows one entry per distinct card (with a count) instead of 20 copies.
+          const seenNums = new Set();
+          const candidates = [];
+          match.forEach((c) => {
+            if (seenNums.has(c.n)) return;
+            seenNums.add(c.n);
+            candidates.push({ idx: candidates.length, card: c, dup: match.filter((x) => x.n === c.n).length });
+          });
           const picks = [];
           for (let i = 0; i < n && candidates.length; i++) {
             const remaining = candidates.filter((c) => !picks.includes(c.idx));
             if (!remaining.length) break;
-            const choice = yield { type: 'deckSearch', player: me === game.A ? 'A' : 'B', candidates: remaining.map((c) => ({ idx: c.idx, nm: c.card.nm, t: c.card.t, bl: c.card.bl })), count: n - i, prompt: `山札から${n - i}枚選択してください` };
-            if (choice != null && choice >= 0 && choice < candidates.length) {
-              picks.push(choice);
-            } else if (remaining.length) {
-              picks.push(remaining[0].idx);
-            }
+            const choice = yield { type: 'deckSearch', player: me === game.A ? 'A' : 'B', candidates: remaining.map((c) => ({ idx: c.idx, n: c.card.n, nm: c.card.nm, t: c.card.t, bl: c.card.bl, img: c.card.img, dup: c.dup })), count: n - i, prompt: `山札から${n - i}枚選択してください` };
+            if (remaining.some((c) => c.idx === choice)) picks.push(choice);
+            else picks.push(remaining[0].idx);
           }
           picks.forEach((pi) => {
             const c = candidates[pi].card;
@@ -349,19 +353,23 @@
           me.deck = rest.concat(me.deck);
           if (take.length) game.push('', `${me.name}: 効果でカードを${take.length}枚手札に加えた`);
         } else {
-          // Let player choose which to keep
-          const candidates = match.map((c, i) => ({ idx: i, nm: c.nm, t: c.t, bl: c.bl }));
+          // Let player choose which to keep. idx stays an index into `match`; duplicate
+          // card numbers are collapsed to one entry so the picker stays readable.
+          const seenNums = new Set();
+          const candidates = [];
+          match.forEach((c, i) => {
+            if (seenNums.has(c.n)) return;
+            seenNums.add(c.n);
+            candidates.push({ idx: i, n: c.n, nm: c.nm, t: c.t, bl: c.bl, img: c.img, dup: match.filter((x) => x.n === c.n).length });
+          });
           const picks = [];
           const keep = a.keep || 1;
           for (let i = 0; i < keep && candidates.length; i++) {
             const remaining = candidates.filter((c) => !picks.includes(c.idx));
             if (!remaining.length) break;
             const choice = yield { type: 'revealChoice', player: me === game.A ? 'A' : 'B', candidates: remaining, count: keep - i, prompt: `公開されたカードから${keep - i}枚選択` };
-            if (choice != null && choice >= 0 && choice < candidates.length) {
-              picks.push(choice);
-            } else if (remaining.length) {
-              picks.push(remaining[0].idx);
-            }
+            if (remaining.some((c) => c.idx === choice)) picks.push(choice);
+            else picks.push(remaining[0].idx);
           }
           const take = picks.map((pi) => match[pi]);
           take.forEach((c) => me.hand.push(c));

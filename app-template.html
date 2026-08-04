@@ -451,6 +451,21 @@ header{
   animation:bv-toast-in .3s ease-out forwards;pointer-events:none}
 .bv-event-toast.out{animation:bv-toast-out .3s forwards}
 
+/* card-image picker for deck search / reveal choices */
+.bv-pick-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;
+  max-height:44vh;overflow-y:auto;padding:4px 2px}
+.bv-pick-card{position:relative;width:74px;cursor:pointer;border:2px solid #555;border-radius:8px;
+  padding:3px;background:rgba(0,0,0,.35);transition:border-color .15s,transform .15s;flex:0 0 auto}
+.bv-pick-card:hover,.bv-pick-card:focus-visible{border-color:var(--pick-accent,#ffca28);transform:translateY(-3px)}
+.bv-pick-card img{width:100%;aspect-ratio:5/7;object-fit:cover;border-radius:5px;display:block}
+.bv-pick-ph{width:100%;aspect-ratio:5/7;border-radius:5px;display:flex;align-items:center;justify-content:center;
+  text-align:center;font-size:10px;line-height:1.2;padding:4px;background:#222836;color:var(--text)}
+.bv-pick-cap{margin-top:3px;text-align:center;line-height:1.25}
+.bv-pick-cap .nm{display:block;font-size:10px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bv-pick-cap .ty{display:block;font-size:9px;color:#9aa4b5}
+.bv-pick-dup{position:absolute;top:1px;right:1px;background:rgba(14,16,22,.92);border:1px solid var(--pick-accent,#ffca28);
+  color:var(--pick-accent,#ffca28);border-radius:8px;font-size:9px;font-weight:800;padding:1px 5px;pointer-events:none}
+
 @media(min-width:600px){
   .bv-slot{width:68px}
   .bv-slot .card-thumb{width:66px;height:92px}
@@ -461,6 +476,8 @@ header{
   .zone-stack-wrap .zs-card{width:46px;height:64px}
   .zone-stack-wrap .zs-badge{font-size:10px;min-width:18px;height:18px}
   .zone-stack-wrap .zs-card .zs-diamond{width:18px;height:18px}
+  .bv-pick-card{width:92px}
+  .bv-pick-cap .nm{font-size:11px}
 }
 
 .card-popup{display:none;position:fixed;z-index:300;background:var(--bg2);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);max-width:320px;width:90vw;overflow:hidden;pointer-events:none}
@@ -1611,41 +1628,47 @@ function showDecision(decision, driver, meKey) {
       const info = el('div','', `🔍 山札サーチ: ${decision.count}枚選択`);
       info.style.cssText = 'margin-bottom:8px;font-weight:bold;color:#ffca28';
       list.appendChild(info);
-      const cardGrid = el('div','');
-      cardGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px';
-      decision.candidates.forEach(c => {
-        const card = el('div','');
-        card.style.cssText = 'cursor:pointer;border:2px solid #555;border-radius:6px;padding:6px;text-align:center;min-width:70px;background:rgba(0,0,0,0.3);transition:border-color 0.2s';
-        const typeLabel = c.t === 'holomen' ? `${c.bl || 'Debut'}` : (c.t === 'support' ? 'サポート' : c.t);
-        card.innerHTML = `<div style="font-size:12px;font-weight:bold">${esc(c.nm)}</div><div style="font-size:10px;color:#aaa">${esc(typeLabel)}</div>`;
-        card.onmouseenter = () => { card.style.borderColor = '#ffca28'; };
-        card.onmouseleave = () => { card.style.borderColor = '#555'; };
-        card.onclick = () => submit(c.idx);
-        cardGrid.appendChild(card);
-      });
-      list.appendChild(cardGrid);
+      list.appendChild(buildCardPicker(decision.candidates, '#ffca28', submit));
       break;
     }
     case 'revealChoice': {
       const info = el('div','', `📖 公開カードから${decision.count}枚選択`);
       info.style.cssText = 'margin-bottom:8px;font-weight:bold;color:#4fc3f7';
       list.appendChild(info);
-      const cardGrid = el('div','');
-      cardGrid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px';
-      decision.candidates.forEach(c => {
-        const card = el('div','');
-        card.style.cssText = 'cursor:pointer;border:2px solid #555;border-radius:6px;padding:6px;text-align:center;min-width:70px;background:rgba(0,0,0,0.3);transition:border-color 0.2s';
-        const typeLabel = c.t === 'holomen' ? `${c.bl || 'Debut'}` : (c.t === 'support' ? 'サポート' : c.t);
-        card.innerHTML = `<div style="font-size:12px;font-weight:bold">${esc(c.nm)}</div><div style="font-size:10px;color:#aaa">${esc(typeLabel)}</div>`;
-        card.onmouseenter = () => { card.style.borderColor = '#4fc3f7'; };
-        card.onmouseleave = () => { card.style.borderColor = '#555'; };
-        card.onclick = () => submit(c.idx);
-        cardGrid.appendChild(card);
-      });
-      list.appendChild(cardGrid);
+      list.appendChild(buildCardPicker(decision.candidates, '#4fc3f7', submit));
       break;
     }
   }
+}
+
+/* Card-image picker used by deckSearch / revealChoice decisions.
+   Falls back to a text tile when a candidate has no image URL. */
+function buildCardPicker(candidates, accent, submit) {
+  const grid = el('div','bv-pick-grid');
+  candidates.forEach(c => {
+    const tile = el('div','bv-pick-card');
+    if (c.img) {
+      const img = el('img','');
+      img.src = c.img;
+      img.alt = c.nm;
+      img.loading = 'lazy';
+      // Remote art may 404 — degrade to the name tile instead of a broken-image icon
+      img.onerror = () => { img.replaceWith(el('div','bv-pick-ph', esc(c.nm))); };
+      tile.appendChild(img);
+    } else {
+      tile.appendChild(el('div','bv-pick-ph', esc(c.nm)));
+    }
+    const typeLabel = c.t === 'holomen' ? (c.bl || 'Debut') : (c.t === 'support' ? 'サポート' : c.t);
+    const cap = el('div','bv-pick-cap');
+    cap.innerHTML = `<span class="nm">${esc(c.nm)}</span><span class="ty">${esc(typeLabel)}</span>`;
+    tile.appendChild(cap);
+    if (c.dup > 1) tile.appendChild(el('div','bv-pick-dup', `×${c.dup}`));
+    tile.style.setProperty('--pick-accent', accent);
+    tile.onclick = () => { hideCardPopup(); submit(c.idx); };
+    if (c.n) attachPopupEvents(tile, c.n, null);
+    grid.appendChild(tile);
+  });
+  return grid;
 }
 
 function showBattleResult(result, meKey) {
