@@ -5553,23 +5553,27 @@ header{
       const card = p.hand[idx];
       const fx = fxOf(this.DB, card.n);
       const isLimited = !!(card.ltd);
-      if (isLimited && (p.limitedUsedTurn || noLimited)) { break; } // no LIMITED on first player's first turn
-      if (!fx || !fx.ability) { break; } // no known effect: don't blindly play (avoid wasting an unknown card)
+      if (isLimited && (p.limitedUsedTurn || noLimited)) { break; }
+      const isAttach = (card.st === 'ツール' || card.st === 'マスコット' || card.st === 'ファン');
+      if (!isAttach && (!fx || !fx.ability)) { p.hand.splice(idx, 1); p.hand.push(card); if (p.hand.length === 1) break; continue; }
       const key = abilityKey(card.n, 'sup');
-      if (!canUse(p, key, fx.ability.once || 'turn')) { p.hand.splice(idx, 1); p.hand.push(card); if (p.hand.length === 1) break; continue; }
-      const ctx = { game: this, me: p, op, self: p.center, rnd };
-      if (!checkCondition(fx.ability.condition, ctx)) { break; }
-      // Tool/Mascot/Fan: attach instead of archiving
-      if (card.st === 'ツール' || card.st === 'マスコット' || card.st === 'ファン') {
-        const targets = this.allHolos(p).filter((h) => !fx.attachFilter || matchesFilter(h.card, fx.attachFilter));
-        const already = targets.find((h) => h.attachments.some((a) => a.n === card.n) && card.st === 'ファン');
+      if (fx && fx.ability) {
+        if (!canUse(p, key, fx.ability.once || 'turn')) { p.hand.splice(idx, 1); p.hand.push(card); if (p.hand.length === 1) break; continue; }
+        const ctx = { game: this, me: p, op, self: p.center, rnd };
+        if (!checkCondition(fx.ability.condition, ctx)) { p.hand.splice(idx, 1); p.hand.push(card); if (p.hand.length === 1) break; continue; }
+      }
+      // Tool/Mascot/Fan: attach to holomen
+      if (isAttach) {
+        const attachFilter = fx && fx.attachFilter;
+        const targets = this.allHolos(p).filter((h) => !attachFilter || matchesFilter(h.card, attachFilter));
         const host = pickTopAttacker(targets.filter((h) => !(card.st !== 'ファン' && h.attachments.some((a2) => a2.st === card.st))), this.DB);
-        if (!host) { break; }
+        if (!host) { p.hand.splice(idx, 1); p.hand.push(card); if (p.hand.length === 1) break; continue; }
         host.attachments.push(card);
         p.hand.splice(idx, 1);
-        markUsed(p, key, 'game');
+        if (fx && fx.ability) markUsed(p, key, 'game');
         this.push('', `${p.name}: ${host.card.nm} に〈${card.nm}〉を付けた`);
       } else {
+        const ctx = { game: this, me: p, op, self: p.center, rnd };
         p.hand.splice(idx, 1);
         markUsed(p, key, fx.ability.once || 'turn');
         if (isLimited) p.limitedUsedTurn = true;
@@ -5865,9 +5869,13 @@ header{
         const fx = fxOf(game.DB, c.n);
         const isLimited = !!(c.ltd);
         if (isLimited && (p.limitedUsedTurn || noLimited)) return;
-        if (!fx || !fx.ability) return;
-        const key = abilityKey(c.n, 'sup');
-        if (!canUse(p, key, fx.ability.once || 'turn')) return;
+        const isAttach = (c.st === 'ツール' || c.st === 'マスコット' || c.st === 'ファン');
+        // Attach-type supports can be played even without ability (they just attach with static effects)
+        if (!isAttach && (!fx || !fx.ability)) return;
+        if (fx && fx.ability) {
+          const key = abilityKey(c.n, 'sup');
+          if (!canUse(p, key, fx.ability.once || 'turn')) return;
+        }
         actions.push({ act: 'playSupport', handIdx: i, label: `サポート使用: ${c.nm}` });
       });
     }
@@ -6188,22 +6196,29 @@ header{
         const card = p.hand[action.handIdx];
         if (!card) break;
         const fx = fxOf(this.DB, card.n);
-        if (!fx || !fx.ability) break;
+        const isAttach = (card.st === 'ツール' || card.st === 'マスコット' || card.st === 'ファン');
+        if (!isAttach && (!fx || !fx.ability)) break;
         const key = abilityKey(card.n, 'sup');
         const isLimited = !!(card.ltd);
-        if (card.st === 'ツール' || card.st === 'マスコット' || card.st === 'ファン') {
-          const targets = this.allHolos(p).filter((h) => !fx.attachFilter || matchesFilter(h.card, fx.attachFilter));
-          if (targets.length) {
+        if (isAttach) {
+          const attachFilter = fx && fx.attachFilter;
+          const targets = this.allHolos(p).filter((h) => !attachFilter || matchesFilter(h.card, attachFilter));
+          // Enforce 1-per-holomen for ツール and マスコット
+          const filtered = targets.filter((h) => {
+            if (card.st === 'ファン') return true; // multiple fans OK
+            return !h.attachments.some((a) => a.st === card.st);
+          });
+          if (filtered.length) {
             let host;
-            if (targets.length === 1) {
-              host = targets[0];
+            if (filtered.length === 1) {
+              host = filtered[0];
             } else {
-              const attachChoice = yield { type: 'supportTarget', player: who, candidates: targets, prompt: `${card.nm} を付けるホロメンを選択` };
-              host = targets.find((h) => h.id === attachChoice) || targets[0];
+              const attachChoice = yield { type: 'supportTarget', player: who, candidates: filtered, prompt: `${card.nm} を付けるホロメンを選択` };
+              host = filtered.find((h) => h.id === attachChoice) || filtered[0];
             }
             host.attachments.push(card);
             p.hand.splice(action.handIdx, 1);
-            markUsed(p, key, 'game');
+            if (fx && fx.ability) markUsed(p, key, 'game');
             this.push('', `${p.name}: ${host.card.nm} に〈${card.nm}〉を付けた`);
           }
         } else {
