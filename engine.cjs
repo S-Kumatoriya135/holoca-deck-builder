@@ -713,7 +713,9 @@
         .sort((a, b) => collabScore(b) - collabScore(a))[0];
       if (cand && (topArtPower(cand.card, this.DB) > 0 || collabScore(cand) > 0)) {
         p.back.splice(p.back.indexOf(cand), 1); p.collab = cand; p.usedCollab = true;
-        this.push('', `${p.name}: ${cand.card.nm} をコラボ`);
+        // Collab rule: move top card of deck to holoPower
+        if (p.deck.length) p.holoPower.push(p.deck.shift());
+        this.push('', `${p.name}: ${cand.card.nm} をコラボ（ホロパワー+1）`);
         if (this.effectsOn) {
           const fx = fxOf(this.DB, cand.card.n);
           if (fx && fx.keywords) {
@@ -1270,7 +1272,9 @@
         const cand = p.back.find((h) => h.id === action.holoId);
         if (!cand) break;
         p.back.splice(p.back.indexOf(cand), 1); p.collab = cand; p.usedCollab = true;
-        this.push('', `${p.name}: ${cand.card.nm} をコラボ`);
+        // Collab rule: move top card of deck to holoPower
+        if (p.deck.length) p.holoPower.push(p.deck.shift());
+        this.push('', `${p.name}: ${cand.card.nm} をコラボ（ホロパワー+1）`);
         yield { type: 'event', event: 'collab', player: who, holoId: cand.id, name: cand.card.nm };
         if (this.effectsOn) {
           const fx = fxOf(this.DB, cand.card.n);
